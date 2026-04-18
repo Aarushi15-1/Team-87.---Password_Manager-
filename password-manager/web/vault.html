@@ -19,13 +19,29 @@
 
   <h2>Vault</h2>
 
-  <!-- SEARCH -->
+  <!-- 🔍 SEARCH -->
   <input class="search" id="search" placeholder="Search websites...">
 
-  <!-- ADD PASSWORD -->
+  <!-- 🔐 GENERATOR (CLEAN) -->
+  <div class="card">
+    <h3>Password Generator</h3>
+
+    <div class="row">
+      <input id="genLength" type="number" placeholder="Length (12 recommended)">
+      <label><input type="checkbox" id="symbols"> Symbols</label>
+      <button onclick="generate()">Generate</button>
+    </div>
+
+    <div class="generated-box">
+      <span id="generated">Click generate</span>
+      <button onclick="copyGenerated()">Copy</button>
+    </div>
+  </div>
+
+  <!-- ➕ ADD PASSWORD -->
   <div class="card">
     <h3>Add Password</h3>
-    <form action="/addPassword" method="post">
+    <form action="/addPassword" method="post" class="row">
       <input name="website" placeholder="Website" required>
       <input name="username" placeholder="Username" required>
       <input name="password" placeholder="Password" required>
@@ -33,7 +49,7 @@
     </form>
   </div>
 
-  <!-- TABLE -->
+  <!-- 📋 TABLE -->
   <div class="card">
     <table id="table">
       <tr>
@@ -41,7 +57,7 @@
         <th>Username</th>
         <th>Password</th>
         <th>Strength</th>
-        <th>Action</th>
+        <th>Actions</th>
       </tr>
 
       {{ROWS}}
@@ -52,6 +68,7 @@
 </div>
 
 <script>
+
 // 🔍 SEARCH
 document.getElementById("search").addEventListener("keyup", function() {
   let val = this.value.toLowerCase();
@@ -63,18 +80,44 @@ document.getElementById("search").addEventListener("keyup", function() {
   });
 });
 
-// 🔓 REVEAL PASSWORD (correct version)
-function reveal(btn, enc) {
+// 🔓 TOGGLE PASSWORD (CLEAN VERSION)
+function toggle(btn, enc) {
+  let cell = btn.parentElement.parentElement.children[2];
+
+  if (cell.dataset.revealed === "true") {
+    cell.innerText = "••••••";
+    cell.dataset.revealed = "false";
+    btn.innerText = "Show";
+    return;
+  }
+
   fetch("/reveal?data=" + encodeURIComponent(enc))
     .then(res => res.text())
     .then(pass => {
-      // move from button -> td -> previous td (strength) -> previous td (password)
-      let passwordCell = btn.parentElement.previousElementSibling.previousElementSibling;
-      passwordCell.innerText = pass;
-      passwordCell.classList.remove("password");
-    })
-    .catch(() => alert("Failed to reveal password"));
+      cell.innerText = pass;
+      cell.dataset.revealed = "true";
+      btn.innerText = "Hide";
+    });
 }
+
+// 🔐 GENERATOR
+function generate() {
+  let len = document.getElementById("genLength").value || 12;
+  let sym = document.getElementById("symbols").checked;
+
+  fetch(`/generate?len=${len}&sym=${sym}`)
+    .then(res => res.text())
+    .then(pass => {
+      document.getElementById("generated").innerText = pass;
+    });
+}
+
+// 📋 COPY
+function copyGenerated() {
+  let text = document.getElementById("generated").innerText;
+  navigator.clipboard.writeText(text);
+}
+
 </script>
 
 </body>

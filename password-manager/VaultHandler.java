@@ -37,17 +37,42 @@ public class VaultHandler implements HttpHandler {
                 String strengthClass = p.getStrength().toLowerCase();
 
                 rows.append("<tr>")
+
+                    // 🌐 Website
                     .append("<td>").append(p.getWebsite()).append("</td>")
+
+                    // 👤 Username
                     .append("<td>").append(p.getUsername()).append("</td>")
-                    .append("<td class='password'>••••••</td>")
+
+                    // 🔐 Password (hidden initially)
+                    .append("<td data-revealed='false'>••••••</td>")
+
+                    // 🏷️ Strength
                     .append("<td><span class='badge ")
                     .append(strengthClass)
                     .append("'>")
                     .append(p.getStrength())
                     .append("</span></td>")
-                    .append("<td><button onclick=\"reveal(this,'")
+
+                    // ⚡ Actions (CLEAN)
+                    .append("<td>")
+
+                    // 👁️ Toggle Reveal
+                    .append("<button onclick=\"toggle(this,'")
                     .append(p.getEncryptedPassword())
-                    .append("')\">Reveal</button></td>")
+                    .append("')\">Show</button>")
+
+                    // ✏️ Edit inline
+                    .append("<form action='/editPassword' method='post' style='display:inline;'>")
+                    .append("<input type='hidden' name='website' value='")
+                    .append(p.getWebsite())
+                    .append("'>")
+                    .append("<input name='password' placeholder='New'>")
+                    .append("<button type='submit'>Update</button>")
+                    .append("</form>")
+
+                    .append("</td>")
+
                     .append("</tr>");
             }
 
@@ -59,7 +84,7 @@ public class VaultHandler implements HttpHandler {
 
             html = html.replace("{{ROWS}}", rows.toString());
 
-            // 🚫 NO CACHE (CRITICAL)
+            // 🚫 NO CACHE
             exchange.getResponseHeaders().set("Cache-Control", "no-cache, no-store, must-revalidate");
             exchange.getResponseHeaders().set("Pragma", "no-cache");
             exchange.getResponseHeaders().set("Expires", "0");

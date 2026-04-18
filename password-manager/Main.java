@@ -51,6 +51,8 @@ public class Main {
         server.createContext("/vault", new VaultHandler());
         server.createContext("/reveal", new RevealHandler());
         server.createContext("/logout", new LogoutHandler());
+        server.createContext("/editPassword", new EditPasswordHandler());
+        server.createContext("/generate", new GenerateHandler());
 
         server.start();
         System.out.println("Running on port 8080");

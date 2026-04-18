@@ -46,7 +46,6 @@ public class PasswordManager {
 
         String encrypted = EncryptionUtil.encrypt(password, key);
 
-        // ✅ FIXED method name
         String strength = PasswordStrength.getStrength(password);
 
         PasswordEntry entry = new PasswordEntry(website, username, encrypted, strength);
@@ -116,4 +115,51 @@ public class PasswordManager {
 
         return reused;
     }
+
+    // ================== ✏️ EDIT PASSWORD FEATURE ==================
+    public static void updatePassword(String email, String website, String newPassword, String key) throws Exception {
+
+    File inputFile = new File(PASSWORD_FILE);
+    File tempFile = new File("temp.txt");
+
+    BufferedReader br = new BufferedReader(new FileReader(inputFile));
+    FileWriter fw = new FileWriter(tempFile);
+
+    String line;
+
+    while ((line = br.readLine()) != null) {
+
+        String[] parts = line.split(",", 2);
+
+        if (parts[0].equals(email)) {
+
+            PasswordEntry entry = PasswordEntry.fromFileString(parts[1]);
+
+            if (entry.getWebsite().equals(website)) {
+
+                String strength = PasswordStrength.getStrength(newPassword);
+                String encrypted = EncryptionUtil.encrypt(newPassword, key);
+
+                PasswordEntry updated = new PasswordEntry(
+                        website,
+                        entry.getUsername(),
+                        encrypted,
+                        strength
+                );
+
+                fw.write(email + "," + updated.toFileString() + "\n");
+                continue;
+            }
+        }
+
+        // ✅ THIS MUST BE INSIDE LOOP
+        fw.write(line + "\n");
+    }
+
+    br.close();
+    fw.close();
+
+    inputFile.delete();
+    tempFile.renameTo(inputFile);
+}
 }
