@@ -1,6 +1,7 @@
 import com.sun.net.httpserver.*;
 import java.io.*;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 
 public class RevealHandler implements HttpHandler {
 
@@ -21,8 +22,20 @@ public class RevealHandler implements HttpHandler {
 
             String key = PasswordManager.deriveKey(email, masterPassword);
 
+            // 🔥 PROPER QUERY PARSING
             String query = exchange.getRequestURI().getQuery();
-            String encrypted = URLDecoder.decode(query.substring(5), "UTF-8");
+
+            String encrypted = null;
+
+            for (String param : query.split("&")) {
+                String[] kv = param.split("=");
+                if (kv[0].equals("data")) {
+                 encrypted = URLDecoder.decode(kv[1], StandardCharsets.UTF_8).replace(" ", "+");                }
+            }
+
+            if (encrypted == null) {
+                throw new Exception("Missing data");
+            }
 
             String decrypted = EncryptionUtil.decrypt(encrypted, key);
 

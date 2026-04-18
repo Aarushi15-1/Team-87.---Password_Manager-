@@ -1,3 +1,4 @@
+import java.security.SecureRandom;
 import java.util.*;
 
 public class PasswordGenerator {
@@ -5,27 +6,30 @@ public class PasswordGenerator {
     private static final String LOWER = "abcdefghijklmnopqrstuvwxyz";
     private static final String UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     private static final String DIGITS = "0123456789";
-    private static final String SYMBOLS = "!@#$%^&*()_+-=[]{}";
 
-    // 🚀 MAIN GENERATOR
+    // ✅ SAFE SYMBOLS (accepted on most websites)
+    private static final String SYMBOLS = "!@#$%^&*-_=.?";
+
     public static String generate(int length, boolean useSymbols, boolean avoidAmbiguous) {
 
+        if (length < 8) length = 8; // minimum safety
+
         List<Character> password = new ArrayList<>();
-        Random rand = new Random();
+        SecureRandom rand = new SecureRandom();
 
         String lower = LOWER;
         String upper = UPPER;
         String digits = DIGITS;
         String symbols = SYMBOLS;
 
-        // 🔥 Remove ambiguous characters
+        // 🔥 Remove ambiguous characters (fixed regex)
         if (avoidAmbiguous) {
             lower = lower.replaceAll("[l]", "");
-            upper = upper.replaceAll("[I|O]", "");
-            digits = digits.replaceAll("[0|1]", "");
+            upper = upper.replaceAll("[IO]", "");
+            digits = digits.replaceAll("[01]", "");
         }
 
-        // 🔐 Ensure at least one of each type (DSA constraint satisfaction)
+        // 🔐 Ensure at least one of each required type
         password.add(randomChar(lower, rand));
         password.add(randomChar(upper, rand));
         password.add(randomChar(digits, rand));
@@ -38,12 +42,12 @@ public class PasswordGenerator {
         String fullSet = lower + upper + digits;
         if (useSymbols) fullSet += symbols;
 
-        // 🧠 Fill remaining length
+        // 🧠 Fill remaining characters
         while (password.size() < length) {
             password.add(randomChar(fullSet, rand));
         }
 
-        // 🔀 Shuffle (Fisher–Yates algorithm)
+        // 🔀 Fisher–Yates shuffle
         shuffle(password, rand);
 
         // 📏 Convert to string
@@ -53,13 +57,11 @@ public class PasswordGenerator {
         return result.toString();
     }
 
-    // 🎯 RANDOM CHAR
-    private static char randomChar(String str, Random rand) {
+    private static char randomChar(String str, SecureRandom rand) {
         return str.charAt(rand.nextInt(str.length()));
     }
 
-    // 🔀 FISHER–YATES SHUFFLE (DSA)
-    private static void shuffle(List<Character> list, Random rand) {
+    private static void shuffle(List<Character> list, SecureRandom rand) {
         for (int i = list.size() - 1; i > 0; i--) {
             int j = rand.nextInt(i + 1);
             char temp = list.get(i);
@@ -68,7 +70,7 @@ public class PasswordGenerator {
         }
     }
 
-    // 📊 ENTROPY CALCULATION
+    // 📊 Entropy calculation
     public static double calculateEntropy(int length, int charsetSize) {
         return length * (Math.log(charsetSize) / Math.log(2));
     }
