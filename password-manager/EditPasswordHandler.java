@@ -5,30 +5,24 @@ import java.nio.charset.StandardCharsets;
 
 public class EditPasswordHandler implements HttpHandler {
 
-    @Override
     public void handle(HttpExchange exchange) throws IOException {
 
         try {
             String cookie = exchange.getRequestHeaders().getFirst("Cookie");
 
-            if (cookie == null || !cookie.contains("session=")) {
-                redirect(exchange);
-                return;
+            String session = null;
+            for (String c : cookie.split(";")) {
+                if (c.trim().startsWith("session=")) {
+                    session = c.split("=")[1];
+                }
             }
 
-            String sessionId = cookie.split("=")[1];
-            String email = SessionManager.getUser(sessionId);
-            String key = SessionManager.getKey(sessionId);
+            String email = SessionManager.getUser(session);
+            String masterPassword = SessionManager.getPassword(session);
 
-            if (email == null) {
-                redirect(exchange);
-                return;
-            }
+            String key = PasswordManager.deriveKey(email, masterPassword);
 
-            String body = new String(
-                    exchange.getRequestBody().readAllBytes(),
-                    StandardCharsets.UTF_8
-            );
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
 
             String website = "", password = "";
 
@@ -40,26 +34,14 @@ public class EditPasswordHandler implements HttpHandler {
                 if (kv[0].equals("password")) password = val;
             }
 
-            // 🔥 UPDATE PASSWORD (with strength recalculation)
             PasswordManager.updatePassword(email, website, password, key);
 
-            // ✅ SINGLE RESPONSE → redirect
-            redirect(exchange);
+            exchange.getResponseHeaders().add("Location", "/vault");
+            exchange.sendResponseHeaders(302, -1);
+            exchange.close();
 
         } catch (Exception e) {
             e.printStackTrace();
-
-            String err = "Update failed";
-            exchange.sendResponseHeaders(500, err.length());
-            exchange.getResponseBody().write(err.getBytes());
-            exchange.close();
         }
-    }
-
-    // 🔁 helper to avoid duplicate header calls
-    private void redirect(HttpExchange exchange) throws IOException {
-        exchange.getResponseHeaders().add("Location", "/vault");
-        exchange.sendResponseHeaders(302, -1);
-        exchange.close();
     }
 }

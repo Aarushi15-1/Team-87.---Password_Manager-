@@ -1,23 +1,27 @@
-import java.util.HashMap;
-import java.util.UUID;
+import java.util.*;
 
 public class SessionManager {
 
-    private static HashMap<String, String> sessions = new HashMap<>();
-    private static HashMap<String, String> userKeys = new HashMap<>();
+    private static Map<String, String> sessionToUser = new HashMap<>();
+    private static Map<String, String> sessionToPassword = new HashMap<>();
 
-    public static String createSession(String email, String key) {
-        String id = UUID.randomUUID().toString();
-        sessions.put(id, email);
-        userKeys.put(id, key);
-        return id;
+    public static String createSession(String email, String password) {
+        String session = UUID.randomUUID().toString();
+        sessionToUser.put(session, email);
+        sessionToPassword.put(session, password);
+        return session;
     }
 
-    public static String getUser(String id) {
-        return sessions.get(id);
+    public static String getUser(String session) {
+        return sessionToUser.get(session);
     }
 
-    public static String getKey(String id) {
-        return userKeys.get(id);
+    public static String getPassword(String session) {
+        return sessionToPassword.get(session);
+    }
+
+    public static void removeSession(String session) {
+        sessionToUser.remove(session);
+        sessionToPassword.remove(session);
     }
 }

@@ -1,67 +1,41 @@
 import com.sun.net.httpserver.*;
 import java.io.*;
 import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 
 public class RevealHandler implements HttpHandler {
 
-    @Override
     public void handle(HttpExchange exchange) throws IOException {
 
         try {
-            // 🔐 Get session cookie
             String cookie = exchange.getRequestHeaders().getFirst("Cookie");
 
-            if (cookie == null || !cookie.contains("session=")) {
-                exchange.getResponseHeaders().add("Location", "/");
-                exchange.sendResponseHeaders(302, -1);
-                exchange.close();
-                return;
+            String session = null;
+            for (String c : cookie.split(";")) {
+                if (c.trim().startsWith("session=")) {
+                    session = c.split("=")[1];
+                }
             }
 
-            String session = cookie.split("=")[1];
+            String email = SessionManager.getUser(session);
+            String masterPassword = SessionManager.getPassword(session);
 
-            // ✅ Get correct key from session
-            String key = SessionManager.getKey(session);
+            String key = PasswordManager.deriveKey(email, masterPassword);
 
-            if (key == null) {
-                exchange.getResponseHeaders().add("Location", "/");
-                exchange.sendResponseHeaders(302, -1);
-                exchange.close();
-                return;
-            }
-
-            // 📥 Read encrypted data from URL
             String query = exchange.getRequestURI().getQuery();
+            String encrypted = URLDecoder.decode(query.substring(5), "UTF-8");
 
-            if (query == null || !query.startsWith("data=")) {
-                String err = "Invalid request";
-                exchange.sendResponseHeaders(400, err.length());
-                exchange.getResponseBody().write(err.getBytes());
-                exchange.close();
-                return;
-            }
-
-            String encoded = query.substring(5);
-            String encrypted = URLDecoder.decode(encoded, StandardCharsets.UTF_8);
-
-            // 🔓 Decrypt using correct key
             String decrypted = EncryptionUtil.decrypt(encrypted, key);
 
-            // 📤 Send response
-            exchange.getResponseHeaders().set("Content-Type", "text/plain");
             exchange.sendResponseHeaders(200, decrypted.length());
-
-            OutputStream os = exchange.getResponseBody();
-            os.write(decrypted.getBytes());
-            os.close();
+            exchange.getResponseBody().write(decrypted.getBytes());
+            exchange.close();
 
         } catch (Exception e) {
             e.printStackTrace();
 
-            String error = "Decryption failed";
-            exchange.sendResponseHeaders(500, error.length());
-            exchange.getResponseBody().write(error.getBytes());
+            String err = "Decryption failed";
+            exchange.sendResponseHeaders(500, err.length());
+            exchange.getResponseBody().write(err.getBytes());
             exchange.close();
         }
     }

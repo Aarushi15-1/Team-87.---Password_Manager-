@@ -24,18 +24,13 @@ public class LoginHandler implements HttpHandler {
         try {
             if (PasswordManager.login(email, password)) {
 
-                // 🔥 derive key using same salt
-                String salt = PasswordManager.getSalt(email);
-                String fullHash = HashUtil.hash(password, salt);
+                String session = SessionManager.createSession(email, password);
 
-                String key = fullHash.substring(0, 16); // AES key
-
-                String session = SessionManager.createSession(email, key);
-
-                exchange.getResponseHeaders().add("Set-Cookie", "session=" + session);
+                exchange.getResponseHeaders().add("Set-Cookie", "session=" + session + "; Path=/");
                 exchange.getResponseHeaders().add("Location", "/dashboard");
 
                 exchange.sendResponseHeaders(302, -1);
+                exchange.close();
                 return;
             }
         } catch (Exception e) {
@@ -45,5 +40,6 @@ public class LoginHandler implements HttpHandler {
         String res = "Login failed";
         exchange.sendResponseHeaders(200, res.length());
         exchange.getResponseBody().write(res.getBytes());
+        exchange.close();
     }
 }

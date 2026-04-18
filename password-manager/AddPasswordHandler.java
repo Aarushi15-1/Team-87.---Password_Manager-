@@ -8,34 +8,21 @@ public class AddPasswordHandler implements HttpHandler {
     public void handle(HttpExchange exchange) throws IOException {
 
         try {
-            // 🔐 Get session cookie
             String cookie = exchange.getRequestHeaders().getFirst("Cookie");
 
-            if (cookie == null || !cookie.contains("session=")) {
-                exchange.getResponseHeaders().add("Location", "/");
-                exchange.sendResponseHeaders(302, -1);
-                exchange.close();
-                return;
+            String session = null;
+            for (String c : cookie.split(";")) {
+                if (c.trim().startsWith("session=")) {
+                    session = c.split("=")[1];
+                }
             }
 
-            String session = cookie.split("=")[1];
-
-            // ✅ Get user + key from session
             String email = SessionManager.getUser(session);
-            String key = SessionManager.getKey(session);
+            String masterPassword = SessionManager.getPassword(session);
 
-            if (email == null || key == null) {
-                exchange.getResponseHeaders().add("Location", "/");
-                exchange.sendResponseHeaders(302, -1);
-                exchange.close();
-                return;
-            }
+            String key = PasswordManager.deriveKey(email, masterPassword);
 
-            // 📥 Read form data
-            String body = new String(
-                exchange.getRequestBody().readAllBytes(),
-                StandardCharsets.UTF_8
-            );
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
 
             String website = "", username = "", password = "";
 
@@ -48,21 +35,14 @@ public class AddPasswordHandler implements HttpHandler {
                 if (kv[0].equals("password")) password = val;
             }
 
-            // 🔐 Save using correct key
             PasswordManager.savePassword(email, website, username, password, key);
 
-            // 🔁 Redirect back to vault
             exchange.getResponseHeaders().add("Location", "/vault");
             exchange.sendResponseHeaders(302, -1);
             exchange.close();
 
         } catch (Exception e) {
             e.printStackTrace();
-
-            String error = "Failed to save password";
-            exchange.sendResponseHeaders(500, error.length());
-            exchange.getResponseBody().write(error.getBytes());
-            exchange.close();
         }
     }
 }

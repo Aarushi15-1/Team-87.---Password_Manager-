@@ -156,10 +156,16 @@ public class PasswordManager {
         fw.write(line + "\n");
     }
 
+
     br.close();
     fw.close();
 
     inputFile.delete();
     tempFile.renameTo(inputFile);
+}
+public static String deriveKey(String email, String password) throws Exception {
+    String salt = getSalt(email);
+    String hash = HashUtil.hash(password, salt);
+    return hash.substring(0, 16); // AES key
 }
 }
