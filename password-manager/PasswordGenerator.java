@@ -6,26 +6,48 @@ public class PasswordGenerator {
     private static final String LOWER = "abcdefghijklmnopqrstuvwxyz";
     private static final String UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     private static final String DIGITS = "0123456789";
-    private static final String SYMBOLS = "!@#$%^&*-_=.?";
+    private static final String SYMBOLS = "!@#$%^&*-_.";
 
     private static final SecureRandom rand = new SecureRandom();
 
-    // 🔥 MAIN GENERATOR
     public static String generate(int length, boolean useSymbols, boolean avoidAmbiguous) {
 
-        if (length < 10) length = 10; // stronger baseline
+        // 🔒 enforce range
+        if (length < 6) length = 6;
+        if (length > 18) length = 18;
 
-        String password;
+        int maxAttempts = 40;
 
-        // 🔁 KEEP GENERATING UNTIL STRONG
-        do {
-            password = generateOnce(length, useSymbols, avoidAmbiguous);
-        } while (!PasswordStrength.getStrength(password).equals("Strong"));
+        String best = "";
+        String bestStrength = "Weak";
 
-        return password;
+        for (int i = 0; i < maxAttempts; i++) {
+
+            String pwd = generateOnce(length, useSymbols, avoidAmbiguous);
+
+            if (hasBadPatterns(pwd)) continue;
+
+            String strength = PasswordStrength.getStrength(pwd);
+
+            // 🔥 return immediately if strong
+            if (strength.equals("Strong")) {
+                return pwd;
+            }
+
+            // store best seen
+            if (strength.equals("Medium") && bestStrength.equals("Weak")) {
+                best = pwd;
+                bestStrength = "Medium";
+            }
+
+            if (best.isEmpty()) {
+                best = pwd;
+            }
+        }
+
+        return best;
     }
 
-    // 🔐 SINGLE GENERATION
     private static String generateOnce(int length, boolean useSymbols, boolean avoidAmbiguous) {
 
         List<Character> password = new ArrayList<>();
@@ -35,76 +57,57 @@ public class PasswordGenerator {
         String digits = DIGITS;
         String symbols = SYMBOLS;
 
-        // 🔥 remove ambiguous chars
         if (avoidAmbiguous) {
             lower = lower.replaceAll("[l]", "");
             upper = upper.replaceAll("[IO]", "");
             digits = digits.replaceAll("[01]", "");
         }
 
-        // ✅ enforce diversity
         password.add(randomChar(lower));
         password.add(randomChar(upper));
         password.add(randomChar(digits));
         if (useSymbols) password.add(randomChar(symbols));
 
-        String fullSet = lower + upper + digits;
-        if (useSymbols) fullSet += symbols;
+        String full = lower + upper + digits;
+        if (useSymbols) full += symbols;
 
         while (password.size() < length) {
-            password.add(randomChar(fullSet));
+            password.add(randomChar(full));
         }
 
         shuffle(password);
 
-        StringBuilder result = new StringBuilder();
-        for (char c : password) result.append(c);
+        StringBuilder sb = new StringBuilder();
+        for (char c : password) sb.append(c);
 
-        String candidate = result.toString();
-
-        // ❌ reject bad patterns
-        if (hasBadPatterns(candidate)) {
-            return generateOnce(length, useSymbols, avoidAmbiguous);
-        }
-
-        return candidate;
+        return sb.toString();
     }
 
-    // 🎯 RANDOM CHAR
     private static char randomChar(String s) {
         return s.charAt(rand.nextInt(s.length()));
     }
 
-    // 🔀 SHUFFLE (Fisher-Yates)
     private static void shuffle(List<Character> list) {
         for (int i = list.size() - 1; i > 0; i--) {
             int j = rand.nextInt(i + 1);
-            char temp = list.get(i);
+            char t = list.get(i);
             list.set(i, list.get(j));
-            list.set(j, temp);
+            list.set(j, t);
         }
     }
 
-    // 🔥 PATTERN FILTER (IMPORTANT)
     private static boolean hasBadPatterns(String s) {
 
-        // sequence
         for (int i = 0; i < s.length() - 2; i++) {
             if (s.charAt(i+1) == s.charAt(i) + 1 &&
-                s.charAt(i+2) == s.charAt(i+1) + 1) {
-                return true;
-            }
+                s.charAt(i+2) == s.charAt(i+1) + 1) return true;
         }
 
-        // repeat
         for (int i = 0; i < s.length() - 2; i++) {
             if (s.charAt(i) == s.charAt(i+1) &&
-                s.charAt(i) == s.charAt(i+2)) {
-                return true;
-            }
+                s.charAt(i) == s.charAt(i+2)) return true;
         }
 
-        // keyboard patterns
         String lower = s.toLowerCase();
         String[] patterns = {"qwerty", "asdf", "zxcv", "12345"};
 

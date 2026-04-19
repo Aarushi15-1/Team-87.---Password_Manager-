@@ -22,15 +22,33 @@
   <!-- 🔍 SEARCH -->
   <input class="search" id="search" placeholder="Search websites...">
 
-  <!-- 🔐 GENERATOR (CLEAN) -->
+  <!-- 🔐 GENERATOR -->
   <div class="card">
     <h3>Password Generator</h3>
 
     <div class="row">
-      <input id="genLength" type="number" placeholder="Length (12 recommended)">
-      <label><input type="checkbox" id="symbols"> Symbols</label>
+
+      <!-- LENGTH DROPDOWN -->
+      <select id="genLength">
+        <option value="6">6</option>
+        <option value="8">8</option>
+        <option value="10">10</option>
+        <option value="12" selected>12 (Recommended)</option>
+        <option value="14">14</option>
+        <option value="16">16</option>
+        <option value="18">18</option>
+      </select>
+
+      <label>
+        <input type="checkbox" id="symbols" checked> Symbols
+      </label>
+
       <button onclick="generate()">Generate</button>
     </div>
+
+    <p id="genHint" style="font-size:12px;color:#94a3b8;margin-top:8px;">
+      12+ characters recommended for strong passwords
+    </p>
 
     <div class="generated-box">
       <span id="generated">Click generate</span>
@@ -80,7 +98,7 @@ document.getElementById("search").addEventListener("keyup", function() {
   });
 });
 
-// 🔓 TOGGLE PASSWORD (CLEAN VERSION)
+// 🔓 TOGGLE PASSWORD
 function toggle(btn, enc) {
   let cell = btn.parentElement.parentElement.children[2];
 
@@ -102,7 +120,7 @@ function toggle(btn, enc) {
 
 // 🔐 GENERATOR
 function generate() {
-  let len = document.getElementById("genLength").value || 12;
+  let len = parseInt(document.getElementById("genLength").value);
   let sym = document.getElementById("symbols").checked;
 
   fetch(`/generate?len=${len}&sym=${sym}`)
@@ -117,6 +135,23 @@ function copyGenerated() {
   let text = document.getElementById("generated").innerText;
   navigator.clipboard.writeText(text);
 }
+
+// 💡 LENGTH FEEDBACK
+document.getElementById("genLength").addEventListener("change", function() {
+  let len = parseInt(this.value);
+  let hint = document.getElementById("genHint");
+
+  if (len < 10) {
+    hint.innerText = "Short passwords are easier to crack";
+    hint.style.color = "#dc2626";
+  } else if (len < 14) {
+    hint.innerText = "Decent, but longer is safer";
+    hint.style.color = "#ca8a04";
+  } else {
+    hint.innerText = "Strong password length";
+    hint.style.color = "#16a34a";
+  }
+});
 
 </script>
 
