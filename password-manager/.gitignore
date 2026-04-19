@@ -1,0 +1,11 @@
+# Compiled Java files
+*.class
+
+# Old storage files (no longer used)
+users.txt
+passwords.txt
+temp.txt
+
+# OS files
+.DS_Store
+Thumbs.db
