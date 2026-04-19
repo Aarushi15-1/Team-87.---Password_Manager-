@@ -9,6 +9,7 @@ public class PhishingDetectorEngine {
     private final HashMap<String, Integer> scoreWeights;
     private final LinkedList<String> trustedDomains;
     private final LinkedList<String> reasons;
+    private boolean trustedDomainMatch;
     private boolean criticalThreat;
     private int totalScore;
 
@@ -30,6 +31,7 @@ public class PhishingDetectorEngine {
         parser.parse(inputUrl);
         reasons.clear();
         totalScore = 0;
+        trustedDomainMatch = false;
         criticalThreat = false;
 
         checkTrustedDomain(parser);
@@ -46,19 +48,21 @@ public class PhishingDetectorEngine {
         checkIPAddress(parser);
 
         int finalScore = criticalThreat ? Math.max(totalScore, 11) : totalScore;
+        boolean plainHttpTrustedDomain = trustedDomainMatch && "http".equals(parser.protocol);
 
         return new PhishingAnalysisResult(
             inputUrl,
             finalScore,
-            PhishingScoreEngine.getVerdict(finalScore),
-            PhishingScoreEngine.getVerdictDetail(finalScore),
+            PhishingScoreEngine.getVerdict(finalScore, plainHttpTrustedDomain),
+            PhishingScoreEngine.getVerdictDetail(finalScore, plainHttpTrustedDomain),
             reasons,
             parser.protocol,
             parser.domain,
             parser.subdomain,
             parser.rootDomain,
             parser.tld,
-            parser.path
+            parser.path,
+            plainHttpTrustedDomain
         );
     }
 
@@ -141,6 +145,7 @@ public class PhishingDetectorEngine {
 
     private void checkTrustedDomain(PhishingURLParser url) {
         if (trustedDomainTrie.search(url.domain)) {
+            trustedDomainMatch = true;
             addReason("TrustedDomain", "Domain is in the trusted-domain trie: " + url.domain);
         }
     }

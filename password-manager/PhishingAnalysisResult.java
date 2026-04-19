@@ -13,6 +13,7 @@ public class PhishingAnalysisResult {
     private final String rootDomain;
     private final String tld;
     private final String path;
+    private final boolean plainHttpTrustedDomain;
 
     public PhishingAnalysisResult(
         String url,
@@ -25,7 +26,8 @@ public class PhishingAnalysisResult {
         String subdomain,
         String rootDomain,
         String tld,
-        String path
+        String path,
+        boolean plainHttpTrustedDomain
     ) {
         this.url = url;
         this.score = score;
@@ -38,6 +40,7 @@ public class PhishingAnalysisResult {
         this.rootDomain = rootDomain;
         this.tld = tld;
         this.path = path;
+        this.plainHttpTrustedDomain = plainHttpTrustedDomain;
     }
 
     public String getUrl() { return url; }
@@ -51,4 +54,5 @@ public class PhishingAnalysisResult {
     public String getRootDomain() { return rootDomain; }
     public String getTld() { return tld; }
     public String getPath() { return path; }
+    public boolean isPlainHttpTrustedDomain() { return plainHttpTrustedDomain; }
 }
