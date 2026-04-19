@@ -8,7 +8,6 @@ public class VaultHandler implements HttpHandler {
     public void handle(HttpExchange exchange) throws IOException {
 
         try {
-            // 🔐 Session check
             String cookie = exchange.getRequestHeaders().getFirst("Cookie");
 
             if (cookie == null || !cookie.contains("session=")) {
@@ -18,7 +17,14 @@ public class VaultHandler implements HttpHandler {
                 return;
             }
 
-            String sessionId = cookie.split("=")[1];
+            // 🔥 SAFE COOKIE PARSE
+            String sessionId = null;
+            for (String c : cookie.split(";")) {
+                if (c.trim().startsWith("session=")) {
+                    sessionId = c.split("=")[1];
+                }
+            }
+
             String email = SessionManager.getUser(sessionId);
 
             if (email == null) {
@@ -37,14 +43,10 @@ public class VaultHandler implements HttpHandler {
                 String strengthClass = p.getStrength().toLowerCase();
 
                 rows.append("<tr>")
-
-                    // 🌐 Website
                     .append("<td>").append(p.getWebsite()).append("</td>")
-
-                    // 👤 Username
                     .append("<td>").append(p.getUsername()).append("</td>")
 
-                    // 🔐 Password (hidden initially)
+                    // 🔐 Hidden password
                     .append("<td data-revealed='false'>••••••</td>")
 
                     // 🏷️ Strength
@@ -54,15 +56,15 @@ public class VaultHandler implements HttpHandler {
                     .append(p.getStrength())
                     .append("</span></td>")
 
-                    // ⚡ Actions (CLEAN)
+                    // ⚡ Actions
                     .append("<td>")
 
-                    // 👁️ Toggle Reveal
+                    // 🔥 ESCAPE ENCRYPTED STRING
                     .append("<button onclick=\"toggle(this,'")
-                    .append(p.getEncryptedPassword())
+                    .append(p.getEncryptedPassword().replace("\"", ""))
                     .append("')\">Show</button>")
 
-                    // ✏️ Edit inline
+                    // ✏️ Edit
                     .append("<form action='/editPassword' method='post' style='display:inline;'>")
                     .append("<input type='hidden' name='website' value='")
                     .append(p.getWebsite())
@@ -72,7 +74,6 @@ public class VaultHandler implements HttpHandler {
                     .append("</form>")
 
                     .append("</td>")
-
                     .append("</tr>");
             }
 
@@ -84,11 +85,9 @@ public class VaultHandler implements HttpHandler {
 
             html = html.replace("{{ROWS}}", rows.toString());
 
-            // 🚫 NO CACHE
             exchange.getResponseHeaders().set("Cache-Control", "no-cache, no-store, must-revalidate");
             exchange.getResponseHeaders().set("Pragma", "no-cache");
             exchange.getResponseHeaders().set("Expires", "0");
-
             exchange.getResponseHeaders().set("Content-Type", "text/html");
 
             byte[] response = html.getBytes();
