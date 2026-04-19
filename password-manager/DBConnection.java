@@ -1,11 +1,16 @@
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.sql.Statement;
 
 public class DBConnection {
-    private static final String URL = "jdbc:mysql://mysql:3306/projectdb";
+    private static final String[] HOSTS = {"mysql", "127.0.0.1", "localhost"};
+    private static final String PORT = "3306";
+    private static final String DATABASE = "projectdb";
     private static final String USER = "root";
     private static final String PASSWORD = "rootpassword";
+    private static final String PARAMETERS =
+        "?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&connectTimeout=5000&socketTimeout=10000";
 
     static {
         try {
@@ -16,7 +21,19 @@ public class DBConnection {
     }
 
     public static Connection getConnection() throws Exception {
-        return DriverManager.getConnection(URL, USER, PASSWORD);
+        SQLException lastException = null;
+
+        for (String host : HOSTS) {
+            String url = "jdbc:mysql://" + host + ":" + PORT + "/" + DATABASE + PARAMETERS;
+            try {
+                DriverManager.setLoginTimeout(5);
+                return DriverManager.getConnection(url, USER, PASSWORD);
+            } catch (SQLException e) {
+                lastException = e;
+            }
+        }
+
+        throw lastException != null ? lastException : new SQLException("Unable to connect to MySQL.");
     }
 
     public static void initializeDatabase() throws Exception {
