@@ -17,15 +17,11 @@
 </div>
 
 <div class="main">
-
   <h2>Phishing Detector</h2>
 
   <div class="card phishing-hero">
     <h3>Analyze Suspicious URLs</h3>
-    <p class="helper-text">
-      This checker uses a Trie for trusted domains, HashMaps for scoring and homoglyph detection,
-      and a LinkedList to preserve triggered reasons in order.
-    </p>
+    <p class="helper-text">Check whether a URL looks safe or like a phishing attempt before you trust it.</p>
     <div class="row phishing-input-row">
       <input id="urlInput" placeholder="https://example.com/login" value="{{PREFILL_URL}}">
       <button id="analyzeBtn" onclick="analyzeURL()">Analyze URL</button>
@@ -43,56 +39,7 @@
         <span id="scoreValue">0</span>
       </div>
     </div>
-
-    <div class="card">
-      <h3>URL Breakdown</h3>
-      <div class="components-grid">
-        <div class="comp-item"><span class="comp-label">Protocol</span><span id="protocolValue" class="comp-value">-</span></div>
-        <div class="comp-item"><span class="comp-label">Domain</span><span id="domainValue" class="comp-value">-</span></div>
-        <div class="comp-item"><span class="comp-label">Subdomain</span><span id="subdomainValue" class="comp-value">-</span></div>
-        <div class="comp-item"><span class="comp-label">Root Domain</span><span id="rootValue" class="comp-value">-</span></div>
-        <div class="comp-item"><span class="comp-label">TLD</span><span id="tldValue" class="comp-value">-</span></div>
-        <div class="comp-item"><span class="comp-label">Path</span><span id="pathValue" class="comp-value">-</span></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>Detection Breakdown</h3>
-      <ul id="reasonsList" class="reasons-list"></ul>
-    </div>
-
-    <div class="card dsa-card">
-      <h3>DSA in Action</h3>
-      <div class="dsa-grid">
-        <div class="dsa-item">
-          <strong>Trie</strong>
-          <p>Fast lookup against trusted domains to reward known safe sites.</p>
-        </div>
-        <div class="dsa-item">
-          <strong>HashMap</strong>
-          <p>Used for homoglyph normalization and weighted rule scoring.</p>
-        </div>
-        <div class="dsa-item">
-          <strong>LinkedList</strong>
-          <p>Keeps triggered phishing reasons in analysis order for the final report.</p>
-        </div>
-      </div>
-    </div>
   </div>
-
-  <div class="card">
-    <h3>Recent Scan History</h3>
-    <table id="historyTable">
-      <tr>
-        <th>URL</th>
-        <th>Verdict</th>
-        <th>Score</th>
-        <th>Scanned At</th>
-      </tr>
-      {{HISTORY_ROWS}}
-    </table>
-  </div>
-
 </div>
 
 <script>
@@ -120,7 +67,6 @@ async function analyzeURL() {
     }
 
     renderResult(data);
-    prependHistoryRow(data);
   } catch (error) {
     alert(error.message);
   } finally {
@@ -144,61 +90,6 @@ function renderResult(data) {
   document.getElementById("verdictLabel").textContent = data.verdict;
   document.getElementById("verdictDetail").textContent = data.detail;
   document.getElementById("scoreValue").textContent = score;
-
-  document.getElementById("protocolValue").textContent = data.components.protocol || "-";
-  document.getElementById("domainValue").textContent = data.components.domain || "-";
-  document.getElementById("subdomainValue").textContent = data.components.subdomain || "-";
-  document.getElementById("rootValue").textContent = data.components.rootDomain || "-";
-  document.getElementById("tldValue").textContent = data.components.tld || "-";
-  document.getElementById("pathValue").textContent = data.components.path || "-";
-
-  const reasonsList = document.getElementById("reasonsList");
-  reasonsList.innerHTML = "";
-
-  if (!data.reasons.length) {
-    const item = document.createElement("li");
-    item.className = "reason-item safe-reason";
-    item.textContent = "No phishing indicators were triggered.";
-    reasonsList.appendChild(item);
-  } else {
-    data.reasons.forEach((reason, index) => {
-      const item = document.createElement("li");
-      item.className = "reason-item " + (reason.startsWith("-") ? "safe-reason" : "risk-reason");
-      item.innerHTML = "<span class='reason-num'>" + (index + 1) + "</span><span>" + escapeHtml(reason) + "</span>";
-      reasonsList.appendChild(item);
-    });
-  }
-}
-
-function prependHistoryRow(data) {
-  const table = document.getElementById("historyTable");
-  const firstDataRow = table.rows.length > 1 ? table.rows[1] : null;
-  if (firstDataRow && firstDataRow.cells.length === 1) {
-    firstDataRow.remove();
-  }
-
-  const row = table.insertRow(1);
-  row.innerHTML =
-    "<td>" + escapeHtml(data.url) + "</td>" +
-    "<td><span class='badge " + verdictClass(data.score) + "'>" + escapeHtml(data.verdict) + "</span></td>" +
-    "<td>" + data.score + "</td>" +
-    "<td>Just now</td>";
-}
-
-function verdictClass(score) {
-  if (score <= 0) return "strong";
-  if (score <= 5) return "medium";
-  if (score <= 10) return "weak";
-  return "critical";
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 </script>
 

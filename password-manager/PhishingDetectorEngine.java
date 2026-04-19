@@ -5,7 +5,9 @@ public class PhishingDetectorEngine {
 
     private final PhishingTrie trustedDomainTrie;
     private final HashMap<Character, Character> homoglyphMap;
+    private final HashMap<Character, Character> lookalikeMap;
     private final HashMap<String, Integer> scoreWeights;
+    private final LinkedList<String> trustedDomains;
     private final LinkedList<String> reasons;
     private boolean criticalThreat;
     private int totalScore;
@@ -13,10 +15,13 @@ public class PhishingDetectorEngine {
     public PhishingDetectorEngine() {
         trustedDomainTrie = new PhishingTrie();
         homoglyphMap = new HashMap<>();
+        lookalikeMap = new HashMap<>();
         scoreWeights = new HashMap<>();
+        trustedDomains = new LinkedList<>();
         reasons = new LinkedList<>();
         initTrustedDomains();
         initHomoglyphMap();
+        initLookalikeMap();
         initScoreWeights();
     }
 
@@ -29,6 +34,7 @@ public class PhishingDetectorEngine {
 
         checkTrustedDomain(parser);
         checkHTTPS(parser);
+        checkLookalikeDomain(parser);
         checkBrandMisuse(parser);
         checkHomoglyph(parser);
         checkPunycode(parser);
@@ -76,6 +82,7 @@ public class PhishingDetectorEngine {
 
         for (String domain : domains) {
             trustedDomainTrie.insert(domain);
+            trustedDomains.add(domain);
         }
     }
 
@@ -98,9 +105,22 @@ public class PhishingDetectorEngine {
         homoglyphMap.put('\u0292', 'z');
     }
 
+    private void initLookalikeMap() {
+        lookalikeMap.put('0', 'o');
+        lookalikeMap.put('1', 'l');
+        lookalikeMap.put('3', 'e');
+        lookalikeMap.put('4', 'a');
+        lookalikeMap.put('5', 's');
+        lookalikeMap.put('7', 't');
+        lookalikeMap.put('8', 'b');
+        lookalikeMap.put('@', 'a');
+        lookalikeMap.put('$', 's');
+    }
+
     private void initScoreWeights() {
         scoreWeights.put("TrustedDomain", -6);
         scoreWeights.put("HTTPS", -2);
+        scoreWeights.put("LookalikeDomain", 7);
         scoreWeights.put("BrandMisuse", 5);
         scoreWeights.put("Homoglyph", 6);
         scoreWeights.put("Punycode", 3);
@@ -131,6 +151,32 @@ public class PhishingDetectorEngine {
         }
     }
 
+    private void checkLookalikeDomain(PhishingURLParser url) {
+        String normalizedDomain = normalizeLookalikes(url.domain);
+        if (!url.domain.equals(normalizedDomain) && trustedDomainTrie.search(normalizedDomain)) {
+            criticalThreat = true;
+            addReason("LookalikeDomain", "Domain visually imitates trusted site " + normalizedDomain + ".");
+            return;
+        }
+
+        for (String trustedDomain : trustedDomains) {
+            if (url.domain.equals(trustedDomain)) {
+                continue;
+            }
+
+            if (!sameFamily(url, trustedDomain)) {
+                continue;
+            }
+
+            int distance = levenshteinDistance(url.domain, trustedDomain);
+            if (distance > 0 && distance <= 2) {
+                criticalThreat = true;
+                addReason("LookalikeDomain", "Domain is only " + distance + " edit away from trusted site " + trustedDomain + ".");
+                return;
+            }
+        }
+    }
+
     private void checkBrandMisuse(PhishingURLParser url) {
         String[] brands = {
             "paypal", "google", "amazon", "apple", "microsoft", "facebook", "netflix",
@@ -139,8 +185,9 @@ public class PhishingDetectorEngine {
             "razorpay", "irctc", "uidai"
         };
 
+        String normalizedDomain = normalizeLookalikes(url.domain);
         for (String brand : brands) {
-            if (url.domain.contains(brand) && !trustedDomainTrie.search(url.domain)) {
+            if ((url.domain.contains(brand) || normalizedDomain.contains(brand)) && !trustedDomainTrie.search(url.domain)) {
                 addReason("BrandMisuse", "Known brand '" + brand + "' appears inside a non-official domain.");
                 return;
             }
@@ -238,5 +285,47 @@ public class PhishingDetectorEngine {
         if (url.domain.matches("\\d{1,3}(\\.\\d{1,3}){3}")) {
             addReason("IPAddress", "Raw IP address used instead of a normal domain name.");
         }
+    }
+
+    private String normalizeLookalikes(String domain) {
+        StringBuilder normalized = new StringBuilder();
+        for (char ch : domain.toCharArray()) {
+            char unicodeNormalized = homoglyphMap.getOrDefault(ch, ch);
+            normalized.append(lookalikeMap.getOrDefault(unicodeNormalized, unicodeNormalized));
+        }
+        return normalized.toString();
+    }
+
+    private boolean sameFamily(PhishingURLParser url, String trustedDomain) {
+        String trustedTld = extractTld(trustedDomain);
+        return url.tld.equals(trustedTld) || url.domain.endsWith(trustedTld) || trustedDomain.endsWith(url.tld);
+    }
+
+    private String extractTld(String domain) {
+        int lastDot = domain.lastIndexOf('.');
+        return lastDot == -1 ? "" : domain.substring(lastDot);
+    }
+
+    private int levenshteinDistance(String left, String right) {
+        int[][] dp = new int[left.length() + 1][right.length() + 1];
+
+        for (int i = 0; i <= left.length(); i++) {
+            dp[i][0] = i;
+        }
+        for (int j = 0; j <= right.length(); j++) {
+            dp[0][j] = j;
+        }
+
+        for (int i = 1; i <= left.length(); i++) {
+            for (int j = 1; j <= right.length(); j++) {
+                int cost = left.charAt(i - 1) == right.charAt(j - 1) ? 0 : 1;
+                dp[i][j] = Math.min(
+                    Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1),
+                    dp[i - 1][j - 1] + cost
+                );
+            }
+        }
+
+        return dp[left.length()][right.length()];
     }
 }
