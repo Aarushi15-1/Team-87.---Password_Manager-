@@ -49,6 +49,8 @@ public class Main {
         server.createContext("/addPassword", new AddPasswordHandler());
         server.createContext("/dashboard", new DashboardHandler());
         server.createContext("/vault", new VaultHandler());
+        server.createContext("/phishing", new PhishingPageHandler());
+        server.createContext("/analyzePhishing", new PhishingAnalyzeHandler());
         server.createContext("/reveal", new RevealHandler());
         server.createContext("/logout", new LogoutHandler());
         server.createContext("/editPassword", new EditPasswordHandler());

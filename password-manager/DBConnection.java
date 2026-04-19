@@ -57,6 +57,19 @@ public class DBConnection {
                 "strength VARCHAR(50) NOT NULL, " +
                 "FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE)"
             );
+
+            stmt.executeUpdate(
+                "CREATE TABLE IF NOT EXISTS phishing_scans (" +
+                "id INT AUTO_INCREMENT PRIMARY KEY, " +
+                "user_email VARCHAR(255) NOT NULL, " +
+                "url TEXT NOT NULL, " +
+                "score INT NOT NULL, " +
+                "verdict VARCHAR(50) NOT NULL, " +
+                "detail TEXT NOT NULL, " +
+                "reasons TEXT NOT NULL, " +
+                "scanned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                "FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE)"
+            );
         }
     }
 }

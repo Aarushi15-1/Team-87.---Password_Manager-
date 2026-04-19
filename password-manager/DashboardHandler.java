@@ -33,11 +33,21 @@ public class DashboardHandler implements HttpHandler {
 
             int total = list.size();
             int weak = 0;
+            int phishingTotal = 0;
+            int phishingHighRisk = 0;
 
             for (PasswordEntry p : list) {
                 if (p.getStrength().equalsIgnoreCase("Weak")) {
                     weak++;
                 }
+            }
+
+            try {
+                Map<String, Integer> phishingStats = PhishingService.getStats(email);
+                phishingTotal = phishingStats.getOrDefault("total", 0);
+                phishingHighRisk = phishingStats.getOrDefault("highRisk", 0);
+            } catch (Exception ignored) {
+                // Keep dashboard rendering even if phishing stats are unavailable.
             }
 
             // 📄 Load HTML
@@ -49,6 +59,8 @@ public class DashboardHandler implements HttpHandler {
 
             html = html.replace("{{TOTAL}}", String.valueOf(total));
             html = html.replace("{{WEAK}}", String.valueOf(weak));
+            html = html.replace("{{PHISHING_TOTAL}}", String.valueOf(phishingTotal));
+            html = html.replace("{{PHISHING_HIGH}}", String.valueOf(phishingHighRisk));
 
             // 🚫 NO CACHE (VERY IMPORTANT)
             exchange.getResponseHeaders().set("Cache-Control", "no-cache, no-store, must-revalidate");
