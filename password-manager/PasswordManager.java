@@ -164,8 +164,24 @@ public class PasswordManager {
     tempFile.renameTo(inputFile);
 }
 public static String deriveKey(String email, String password) throws Exception {
+
     String salt = getSalt(email);
-    String hash = HashUtil.hash(password, salt);
-    return hash.substring(0, 16); // AES key
+
+    // 🔐 initial seed
+    String value = password + ":" + salt;
+
+    // 🔁 iterative hashing (DSA-style)
+    for (int i = 0; i < 1000; i++) {
+
+        value = HashUtil.hash(value + i, "");
+
+        // extra mixing every 100 iterations
+        if (i % 100 == 0) {
+            value = HashUtil.hash(value + salt, "");
+        }
+    }
+
+    // 🔑 final AES key (128-bit)
+    return value.substring(0, 16);
 }
 }

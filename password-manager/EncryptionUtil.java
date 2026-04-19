@@ -2,13 +2,14 @@ import javax.crypto.*;
 import javax.crypto.spec.*;
 import java.security.*;
 import java.util.Base64;
+import java.nio.charset.StandardCharsets;
 
 public class EncryptionUtil {
 
     // 🔐 ENCRYPT
     public static String encrypt(String plainText, String key) throws Exception {
 
-        byte[] keyBytes = key.getBytes();
+        byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
         SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "AES");
 
         Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
@@ -21,22 +22,24 @@ public class EncryptionUtil {
 
         cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivSpec);
 
-        byte[] encrypted = cipher.doFinal(plainText.getBytes());
+        byte[] encrypted = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
 
-        // 🔥 store IV + ciphertext together
+        // 🔥 combine IV + encrypted
         byte[] combined = new byte[iv.length + encrypted.length];
         System.arraycopy(iv, 0, combined, 0, iv.length);
         System.arraycopy(encrypted, 0, combined, iv.length, encrypted.length);
 
-        return Base64.getEncoder().encodeToString(combined);
+        // 🔥 USE URL-SAFE BASE64 (THIS FIXES YOUR BUG)
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(combined);
     }
 
     // 🔓 DECRYPT
     public static String decrypt(String cipherText, String key) throws Exception {
 
-        byte[] combined = Base64.getDecoder().decode(cipherText);
+        // 🔥 URL-SAFE DECODER
+        byte[] combined = Base64.getUrlDecoder().decode(cipherText);
 
-        byte[] keyBytes = key.getBytes();
+        byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
         SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "AES");
 
         // 🔥 extract IV
@@ -45,7 +48,7 @@ public class EncryptionUtil {
 
         IvParameterSpec ivSpec = new IvParameterSpec(iv);
 
-        // 🔥 extract actual encrypted data
+        // 🔥 extract encrypted data
         byte[] encrypted = new byte[combined.length - 16];
         System.arraycopy(combined, 16, encrypted, 0, encrypted.length);
 
@@ -55,6 +58,6 @@ public class EncryptionUtil {
 
         byte[] decrypted = cipher.doFinal(encrypted);
 
-        return new String(decrypted);
+        return new String(decrypted, StandardCharsets.UTF_8);
     }
 }
