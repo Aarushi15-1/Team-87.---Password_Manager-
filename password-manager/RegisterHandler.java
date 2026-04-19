@@ -7,7 +7,11 @@ public class RegisterHandler implements HttpHandler {
 
     public void handle(HttpExchange exchange) throws IOException {
 
-        if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) return;
+        if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+            exchange.sendResponseHeaders(405, -1);
+            exchange.close();
+            return;
+        }
 
         String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
 
@@ -29,5 +33,6 @@ public class RegisterHandler implements HttpHandler {
 
         exchange.getResponseHeaders().add("Location", "/");
         exchange.sendResponseHeaders(302, -1);
+        exchange.close();
     }
 }
