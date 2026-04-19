@@ -54,6 +54,7 @@ public class Main {
         server.createContext("/editPassword", new EditPasswordHandler());
         server.createContext("/generate", new GenerateHandler());
 
+        DBConnection.initializeDatabase();
         server.start();
         System.out.println("Running on port 8080");
     }
