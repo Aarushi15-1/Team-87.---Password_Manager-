@@ -3,6 +3,7 @@
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
   "workspaceFolder": "/workspaces/Password/password-manager",
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y mariadb-client && sudo ln -sf /usr/bin/mariadb /usr/local/bin/mysql",
   "forwardPorts": [8080, 3306],
   "portsAttributes": {
     "8080": {
