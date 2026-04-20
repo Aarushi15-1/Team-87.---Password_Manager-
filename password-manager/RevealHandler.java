@@ -12,7 +12,6 @@ public class RevealHandler implements HttpHandler {
                 exchange.getRequestHeaders().getFirst("Cookie")
             );
             String vaultKey = SessionManager.getVaultKey(session);
-            String legacyVaultKey = SessionManager.getLegacyVaultKey(session);
 
             if (vaultKey == null) {
                 exchange.sendResponseHeaders(401, -1);
@@ -26,7 +25,7 @@ public class RevealHandler implements HttpHandler {
                 throw new Exception("Missing data");
             }
 
-            String decrypted = EncryptionUtil.decrypt(encrypted, vaultKey, legacyVaultKey);
+            String decrypted = EncryptionUtil.decrypt(encrypted, vaultKey);
 
             byte[] response = decrypted.getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(200, response.length);

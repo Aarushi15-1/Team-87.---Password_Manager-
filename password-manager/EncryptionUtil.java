@@ -3,7 +3,6 @@ import java.security.SecureRandom;
 import java.util.Base64;
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 public class EncryptionUtil {
@@ -49,30 +48,8 @@ public class EncryptionUtil {
             Base64.getUrlEncoder().withoutPadding().encodeToString(encrypted);
     }
 
-    public static String decrypt(String cipherText, String vaultKey, String legacyVaultKey) throws Exception {
-        if (cipherText != null && cipherText.startsWith(CURRENT_PREFIX + ":")) {
-            return decryptCurrent(cipherText, vaultKey);
-        }
-
-        if (legacyVaultKey == null || legacyVaultKey.isEmpty()) {
-            throw new IllegalStateException("Legacy vault key is unavailable for this entry.");
-        }
-
-        return decryptLegacy(cipherText, legacyVaultKey);
-    }
-
-    public static String deriveLegacyVaultKey(String password, String salt) {
-        String value = password + ":" + salt;
-
-        for (int i = 0; i < 1000; i++) {
-            value = HashUtil.legacyHash(value + i, "");
-
-            if (i % 100 == 0) {
-                value = HashUtil.legacyHash(value + salt, "");
-            }
-        }
-
-        return value.substring(0, 16);
+    public static String decrypt(String cipherText, String vaultKey) throws Exception {
+        return decryptCurrent(cipherText, vaultKey);
     }
 
     private static String decryptCurrent(String cipherText, String vaultKey) throws Exception {
@@ -98,23 +75,4 @@ public class EncryptionUtil {
         return new String(decrypted, StandardCharsets.UTF_8);
     }
 
-    private static String decryptLegacy(String cipherText, String legacyVaultKey) throws Exception {
-        byte[] combined = Base64.getUrlDecoder().decode(cipherText);
-        byte[] keyBytes = legacyVaultKey.getBytes(StandardCharsets.UTF_8);
-
-        SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "AES");
-
-        byte[] iv = new byte[16];
-        System.arraycopy(combined, 0, iv, 0, 16);
-
-        IvParameterSpec ivSpec = new IvParameterSpec(iv);
-        byte[] encrypted = new byte[combined.length - 16];
-        System.arraycopy(combined, 16, encrypted, 0, encrypted.length);
-
-        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-        cipher.init(Cipher.DECRYPT_MODE, secretKey, ivSpec);
-
-        byte[] decrypted = cipher.doFinal(encrypted);
-        return new String(decrypted, StandardCharsets.UTF_8);
-    }
 }

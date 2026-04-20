@@ -26,12 +26,8 @@ public class HashUtil {
     }
 
     public static boolean verifyPassword(String password, String salt, String storedHash) {
-        if (storedHash == null || storedHash.isEmpty()) {
+        if (storedHash == null || storedHash.isEmpty() || !isPbkdf2Hash(storedHash)) {
             return false;
-        }
-
-        if (!isPbkdf2Hash(storedHash)) {
-            return legacyHash(password, salt).equals(storedHash);
         }
 
         String[] parts = storedHash.split("\\$", 3);
@@ -57,26 +53,9 @@ public class HashUtil {
         return DEFAULT_ITERATIONS;
     }
 
-    public static String deriveVaultKey(String password, String salt) {
-        byte[] key = deriveBytes(password, salt, "vault", DEFAULT_ITERATIONS, VAULT_KEY_LENGTH_BITS);
-        return Base64.getEncoder().encodeToString(key);
-    }
-
     public static String deriveWrappingKey(String password, String salt) {
         byte[] key = deriveBytes(password, salt, "wrap", DEFAULT_ITERATIONS, VAULT_KEY_LENGTH_BITS);
         return Base64.getEncoder().encodeToString(key);
-    }
-
-    public static String legacyHash(String password, String salt) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            md.update(salt.getBytes(StandardCharsets.UTF_8));
-
-            byte[] hashed = md.digest(password.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hashed);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     private static byte[] deriveBytes(String password, String salt, String purpose, int iterations, int lengthBits) {

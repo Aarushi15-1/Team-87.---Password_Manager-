@@ -7,12 +7,10 @@ public class SessionManager {
     public static final class SessionData {
         private final String email;
         private final String vaultKey;
-        private final String legacyVaultKey;
 
-        public SessionData(String email, String vaultKey, String legacyVaultKey) {
+        public SessionData(String email, String vaultKey) {
             this.email = email;
             this.vaultKey = vaultKey;
-            this.legacyVaultKey = legacyVaultKey;
         }
 
         public String getEmail() {
@@ -22,17 +20,13 @@ public class SessionManager {
         public String getVaultKey() {
             return vaultKey;
         }
-
-        public String getLegacyVaultKey() {
-            return legacyVaultKey;
-        }
     }
 
     private static final Map<String, SessionData> sessions = new ConcurrentHashMap<>();
 
-    public static String createSession(String email, String vaultKey, String legacyVaultKey) {
+    public static String createSession(String email, String vaultKey) {
         String session = UUID.randomUUID().toString();
-        sessions.put(session, new SessionData(email, vaultKey, legacyVaultKey));
+        sessions.put(session, new SessionData(email, vaultKey));
         return session;
     }
 
@@ -52,11 +46,6 @@ public class SessionManager {
     public static String getVaultKey(String session) {
         SessionData data = getSession(session);
         return data == null ? null : data.getVaultKey();
-    }
-
-    public static String getLegacyVaultKey(String session) {
-        SessionData data = getSession(session);
-        return data == null ? null : data.getLegacyVaultKey();
     }
 
     public static void removeSession(String session) {

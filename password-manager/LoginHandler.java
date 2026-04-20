@@ -21,8 +21,7 @@ public class LoginHandler implements HttpHandler {
             if (login != null) {
                 String session = SessionManager.createSession(
                     login.getEmail(),
-                    login.getVaultKey(),
-                    login.getLegacyVaultKey()
+                    login.getVaultKey()
                 );
 
                 exchange.getResponseHeaders().add(
