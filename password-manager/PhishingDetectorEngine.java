@@ -190,7 +190,7 @@ public class PhishingDetectorEngine {
     }
 
     private void checkTrustedDomain(PhishingURLParser url) {
-        if (trustedDomainTrie.search(url.domain)) {
+        if (isTrustedDomain(url)) {
             trustedDomainMatch = true;
             addReason("TrustedDomain", "Domain is in the trusted-domain trie: " + url.domain);
         }
@@ -204,7 +204,7 @@ public class PhishingDetectorEngine {
 
     private void checkLookalikeDomain(PhishingURLParser url) {
         String normalizedDomain = normalizeLookalikes(url.domain);
-        if (!url.domain.equals(normalizedDomain) && trustedDomainTrie.search(normalizedDomain)) {
+        if (!url.domain.equals(normalizedDomain) && isTrustedDomain(normalizedDomain)) {
             criticalThreat = true;
             strongSuspiciousSignal = true;
             addReason("LookalikeDomain", "Domain visually imitates trusted site " + normalizedDomain + ".");
@@ -235,7 +235,7 @@ public class PhishingDetectorEngine {
 
         String normalizedDomain = normalizeLookalikes(url.domain);
         for (String brand : brands) {
-            if ((url.domain.contains(brand) || normalizedDomain.contains(brand)) && !trustedDomainTrie.search(url.domain)) {
+            if ((url.domain.contains(brand) || normalizedDomain.contains(brand)) && !isTrustedDomain(url)) {
                 addReason("BrandMisuse", "Known brand '" + brand + "' appears inside a non-official domain.");
                 return;
             }
@@ -249,7 +249,7 @@ public class PhishingDetectorEngine {
         }
 
         String normalizedDomain = normalized.toString();
-        if (!url.domain.equals(normalizedDomain) && trustedDomainTrie.search(normalizedDomain)) {
+        if (!url.domain.equals(normalizedDomain) && isTrustedDomain(normalizedDomain)) {
             criticalThreat = true;
             strongSuspiciousSignal = true;
             addReason("Homoglyph", "Unicode lookalike characters suggest impersonation of " + normalizedDomain + ".");
@@ -364,7 +364,7 @@ public class PhishingDetectorEngine {
             return;
         }
 
-        boolean trustedFinalDomain = trustedDomainTrie.search(finalParser.domain);
+        boolean trustedFinalDomain = isTrustedDomain(finalParser);
         boolean httpsFinalDomain = "https".equals(finalParser.protocol);
         boolean resolvedThroughRedirect = fetchResult.getRedirectChain().size() > 1;
 
@@ -411,7 +411,7 @@ public class PhishingDetectorEngine {
 
     private void analyzeFetchedHtml(String html, PhishingURLParser finalParser) {
         String lowerHtml = html.toLowerCase();
-        boolean trustedFinalDomain = trustedDomainTrie.search(finalParser.domain);
+        boolean trustedFinalDomain = isTrustedDomain(finalParser);
         trustedFinalDomainMatch = trustedFinalDomain;
         boolean hasPasswordField = containsPasswordField(lowerHtml);
         boolean hasForm = lowerHtml.contains("<form");
@@ -534,8 +534,29 @@ public class PhishingDetectorEngine {
     }
 
     private boolean isTrustedSameBoundary(PhishingURLParser currentUrl, PhishingURLParser actionUrl) {
-        return trustedDomainTrie.search(currentUrl.rootDomain + currentUrl.tld)
+        return isTrustedDomain(currentUrl)
             && sameRegisteredDomain(currentUrl, actionUrl);
+    }
+
+    private boolean isTrustedDomain(PhishingURLParser url) {
+        return url != null && isTrustedDomain(url.domain);
+    }
+
+    private boolean isTrustedDomain(String domain) {
+        if (domain == null || domain.isBlank()) {
+            return false;
+        }
+
+        if (trustedDomainTrie.search(domain)) {
+            return true;
+        }
+
+        int firstDot = domain.indexOf('.');
+        if (firstDot == -1) {
+            return false;
+        }
+
+        return trustedDomainTrie.search(domain.substring(firstDot + 1));
     }
 
     private boolean sameFamily(PhishingURLParser url, String trustedDomain) {
