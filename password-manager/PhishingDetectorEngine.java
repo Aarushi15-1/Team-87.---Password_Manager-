@@ -15,6 +15,7 @@ public class PhishingDetectorEngine {
     private final HashMap<Character, Character> homoglyphMap;
     private final HashMap<Character, Character> lookalikeMap;
     private final HashMap<String, Integer> scoreWeights;
+    private final HashMap<String, String> shortenerRiskTiers;
     private final LinkedList<String> trustedDomains;
     private final LinkedList<String> reasons;
     private boolean trustedDomainMatch;
@@ -27,12 +28,14 @@ public class PhishingDetectorEngine {
         homoglyphMap = new HashMap<>();
         lookalikeMap = new HashMap<>();
         scoreWeights = new HashMap<>();
+        shortenerRiskTiers = new HashMap<>();
         trustedDomains = new LinkedList<>();
         reasons = new LinkedList<>();
         initTrustedDomains();
         initHomoglyphMap();
         initLookalikeMap();
         initScoreWeights();
+        initShortenerRiskTiers();
     }
 
     public PhishingAnalysisResult analyze(String inputUrl) {
@@ -157,6 +160,23 @@ public class PhishingDetectorEngine {
         scoreWeights.put("SuspiciousScript", 3);
     }
 
+    private void initShortenerRiskTiers() {
+        String[] establishedShorteners = {
+            "bit.ly", "tinyurl.com", "t.co", "lnkd.in", "goo.gl", "ow.ly",
+            "is.gd", "buff.ly", "rebrand.ly", "cutt.ly", "short.io", "bl.ink"
+        };
+        String[] elevatedRiskShorteners = {
+            "goo.su"
+        };
+
+        for (String domain : establishedShorteners) {
+            shortenerRiskTiers.put(domain, "ESTABLISHED");
+        }
+        for (String domain : elevatedRiskShorteners) {
+            shortenerRiskTiers.put(domain, "ELEVATED_RISK");
+        }
+    }
+
     private void addReason(String ruleName, String message) {
         int points = scoreWeights.getOrDefault(ruleName, 0);
         totalScore += points;
@@ -235,26 +255,18 @@ public class PhishingDetectorEngine {
     }
 
     private void checkShortener(PhishingURLParser url) {
-        String[] shorteners = {
-            "bit.ly", "tinyurl.com", "t.co", "lnkd.in", "goo.gl", "goo.su", "ow.ly",
-            "is.gd", "buff.ly", "rebrand.ly", "cutt.ly", "short.io", "bl.ink"
-        };
-        String[] riskyShorteners = {
-            "goo.su"
-        };
+        String shortenerTier = shortenerRiskTiers.get(url.domain);
+        if (shortenerTier == null) {
+            return;
+        }
 
-        for (String shortener : shorteners) {
-            if (url.domain.equals(shortener)) {
-                shortenerDetected = true;
-                addReason("Shortener", "Shortened URL detected, so the final destination needs verification.");
-                for (String riskyShortener : riskyShorteners) {
-                    if (url.domain.equals(riskyShortener)) {
-                        addReason("RiskyShortener", "This shortener has elevated abuse reports, so treat it with extra caution.");
-                        break;
-                    }
-                }
-                return;
-            }
+        shortenerDetected = true;
+        addReason("Shortener", "Shortened URL detected, so the final destination needs verification.");
+
+        if ("ELEVATED_RISK".equals(shortenerTier)) {
+            addReason("RiskyShortener", "This shortener has elevated abuse reports, so treat it with extra caution.");
+        } else {
+            reasons.add("+0 Established shortener detected, so the redirect target matters more than the homepage.");
         }
     }
 
