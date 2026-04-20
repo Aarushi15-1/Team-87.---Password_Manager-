@@ -31,7 +31,6 @@ public class DashboardHandler implements HttpHandler {
             }
 
             List<PasswordEntry> list = PasswordManager.getPasswords(email);
-
             int total = list.size();
             int weak = 0;
 
@@ -52,7 +51,7 @@ public class DashboardHandler implements HttpHandler {
             exchange.getResponseHeaders().set("Cache-Control", "no-cache, no-store, must-revalidate");
             exchange.getResponseHeaders().set("Pragma", "no-cache");
             exchange.getResponseHeaders().set("Expires", "0");
-            exchange.getResponseHeaders().set("Content-Type", "text/html");
+            exchange.getResponseHeaders().set("Content-Type", "text/html; charset=utf-8");
 
             byte[] response = html.getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(200, response.length);

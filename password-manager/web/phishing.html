@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Phishing Detector</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="logo">PassVault</div>
+  <div class="nav">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/vault">Vault</a>
+    <a href="/phishing">Phishing Detector</a>
+    <a href="/logout">Logout</a>
+  </div>
+</div>
+
+<div class="main">
+  <h2>Phishing Detector</h2>
+
+  <div class="card phishing-hero">
+    <h3>Analyze Suspicious URLs</h3>
+    <p class="helper-text">Check whether a URL looks safe or like a phishing attempt before you trust it.</p>
+    <div class="row phishing-input-row">
+      <input id="urlInput" placeholder="https://example.com/login" value="{{PREFILL_URL}}">
+      <button id="analyzeBtn" onclick="analyzeURL()">Analyze URL</button>
+    </div>
+  </div>
+
+  <div id="phishingResult" class="hidden">
+    <div id="verdictCard" class="card phishing-verdict">
+      <div>
+        <p class="eyebrow">Verdict</p>
+        <h3 id="verdictLabel">SAFE</h3>
+        <p id="verdictDetail" class="helper-text"></p>
+      </div>
+      <div class="score-pill">
+        <span id="scoreValue">0</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function analyzeURL() {
+  const input = document.getElementById("urlInput").value.trim();
+  if (!input) {
+    alert("Please enter a URL to analyze.");
+    return;
+  }
+
+  const button = document.getElementById("analyzeBtn");
+  button.disabled = true;
+  button.textContent = "Analyzing...";
+
+  try {
+    const response = await fetch("/analyzePhishing", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+      body: "url=" + encodeURIComponent(input)
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Unable to analyze URL.");
+    }
+
+    renderResult(data);
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Analyze URL";
+  }
+}
+
+function renderResult(data) {
+  document.getElementById("phishingResult").classList.remove("hidden");
+
+  const score = parseInt(data.score, 10);
+  const verdictCard = document.getElementById("verdictCard");
+  verdictCard.className = "card phishing-verdict";
+
+  if (score <= 0) verdictCard.classList.add("verdict-safe");
+  else if (score <= 5) verdictCard.classList.add("verdict-suspicious");
+  else if (score <= 10) verdictCard.classList.add("verdict-high");
+  else verdictCard.classList.add("verdict-critical");
+
+  document.getElementById("verdictLabel").textContent = data.verdict;
+  document.getElementById("verdictDetail").textContent = data.detail;
+  document.getElementById("scoreValue").textContent = score;
+}
+</script>
+
+</body>
+</html>

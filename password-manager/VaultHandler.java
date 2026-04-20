@@ -2,6 +2,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -35,25 +36,30 @@ public class VaultHandler implements HttpHandler {
 
             for (PasswordEntry p : list) {
                 String strengthClass = p.getStrength().toLowerCase();
-                String website = escapeHtml(p.getWebsite());
-                String username = escapeHtml(p.getUsername());
+                String safeWebsite = WebUtils.escapeHtml(p.getWebsite());
+                String safeUsername = WebUtils.escapeHtml(p.getUsername());
+                String safeStrength = WebUtils.escapeHtml(p.getStrength());
+                String encodedWebsite = URLEncoder.encode(p.getWebsite(), StandardCharsets.UTF_8);
 
                 rows.append("<tr>")
-                    .append("<td>").append(website).append("</td>")
-                    .append("<td>").append(username).append("</td>")
-                    .append("<td data-revealed='false'>â€¢â€¢â€¢â€¢â€¢â€¢</td>")
+                    .append("<td>").append(safeWebsite).append("</td>")
+                    .append("<td>").append(safeUsername).append("</td>")
+                    .append("<td data-revealed='false'>******</td>")
                     .append("<td><span class='badge ")
                     .append(strengthClass)
                     .append("'>")
-                    .append(p.getStrength())
+                    .append(safeStrength)
                     .append("</span></td>")
                     .append("<td>")
                     .append("<button onclick=\"toggle(this,'")
                     .append(p.getEncryptedPassword().replace("\"", ""))
                     .append("')\">Show</button>")
+                    .append("<a class='action-link' href='/phishing?url=")
+                    .append(encodedWebsite)
+                    .append("'>Scan</a>")
                     .append("<form action='/editPassword' method='post' style='display:inline;'>")
                     .append("<input type='hidden' name='website' value='")
-                    .append(website)
+                    .append(safeWebsite)
                     .append("'>")
                     .append("<input name='password' placeholder='New'>")
                     .append("<button type='submit'>Update</button>")
@@ -72,7 +78,7 @@ public class VaultHandler implements HttpHandler {
             exchange.getResponseHeaders().set("Cache-Control", "no-cache, no-store, must-revalidate");
             exchange.getResponseHeaders().set("Pragma", "no-cache");
             exchange.getResponseHeaders().set("Expires", "0");
-            exchange.getResponseHeaders().set("Content-Type", "text/html");
+            exchange.getResponseHeaders().set("Content-Type", "text/html; charset=utf-8");
 
             byte[] response = html.getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(200, response.length);
@@ -89,18 +95,5 @@ public class VaultHandler implements HttpHandler {
         } finally {
             exchange.close();
         }
-    }
-
-    private String escapeHtml(String value) {
-        if (value == null) {
-            return "";
-        }
-
-        return value
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace("\"", "&quot;")
-            .replace("'", "&#39;");
     }
 }
