@@ -53,8 +53,16 @@ public class DBConnection {
                 "CREATE TABLE IF NOT EXISTS users (" +
                 "email VARCHAR(255) PRIMARY KEY, " +
                 "salt VARCHAR(255) NOT NULL, " +
-                "password_hash VARCHAR(255) NOT NULL)"
+                "password_hash VARCHAR(255) NOT NULL, " +
+                "wrap_salt VARCHAR(255) NULL, " +
+                "wrapped_vault_key TEXT NULL, " +
+                "wrap_kdf_algorithm VARCHAR(50) NULL, " +
+                "wrap_kdf_iterations INT NULL)"
             );
+            ensureColumn(stmt, "users", "wrap_salt", "VARCHAR(255) NULL");
+            ensureColumn(stmt, "users", "wrapped_vault_key", "TEXT NULL");
+            ensureColumn(stmt, "users", "wrap_kdf_algorithm", "VARCHAR(50) NULL");
+            ensureColumn(stmt, "users", "wrap_kdf_iterations", "INT NULL");
 
             stmt.executeUpdate(
                 "CREATE TABLE IF NOT EXISTS passwords (" +
@@ -79,6 +87,17 @@ public class DBConnection {
                 "scanned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
                 "FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE)"
             );
+        }
+    }
+
+    private static void ensureColumn(Statement stmt, String tableName, String columnName, String definition) throws SQLException {
+        try {
+            stmt.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + columnName + " " + definition);
+        } catch (SQLException e) {
+            String message = e.getMessage();
+            if (message == null || !message.toLowerCase().contains("duplicate column")) {
+                throw e;
+            }
         }
     }
 }

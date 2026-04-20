@@ -49,8 +49,21 @@ public class HashUtil {
         return storedHash != null && storedHash.startsWith(PBKDF2_PREFIX + "$");
     }
 
+    public static String getPasswordKdfAlgorithm() {
+        return PBKDF2_PREFIX;
+    }
+
+    public static int getDefaultIterations() {
+        return DEFAULT_ITERATIONS;
+    }
+
     public static String deriveVaultKey(String password, String salt) {
         byte[] key = deriveBytes(password, salt, "vault", DEFAULT_ITERATIONS, VAULT_KEY_LENGTH_BITS);
+        return Base64.getEncoder().encodeToString(key);
+    }
+
+    public static String deriveWrappingKey(String password, String salt) {
+        byte[] key = deriveBytes(password, salt, "wrap", DEFAULT_ITERATIONS, VAULT_KEY_LENGTH_BITS);
         return Base64.getEncoder().encodeToString(key);
     }
 

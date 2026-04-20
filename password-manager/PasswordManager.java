@@ -36,7 +36,13 @@ public class PasswordManager {
     public static void register(String email, String password) throws Exception {
         String salt = HashUtil.generateSalt();
         String hash = HashUtil.hashPassword(password, salt);
-        String sql = "INSERT INTO users (email, salt, password_hash) VALUES (?, ?, ?)";
+        String wrapSalt = HashUtil.generateSalt();
+        String wrappingKey = HashUtil.deriveWrappingKey(password, wrapSalt);
+        String vaultKey = EncryptionUtil.generateVaultKey();
+        String wrappedVaultKey = EncryptionUtil.wrapVaultKey(vaultKey, wrappingKey);
+        String sql =
+            "INSERT INTO users (email, salt, password_hash, wrap_salt, wrapped_vault_key, wrap_kdf_algorithm, wrap_kdf_iterations) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -44,12 +50,18 @@ public class PasswordManager {
             ps.setString(1, email);
             ps.setString(2, salt);
             ps.setString(3, hash);
+            ps.setString(4, wrapSalt);
+            ps.setString(5, wrappedVaultKey);
+            ps.setString(6, HashUtil.getPasswordKdfAlgorithm());
+            ps.setInt(7, HashUtil.getDefaultIterations());
             ps.executeUpdate();
         }
     }
 
     public static LoginResult login(String email, String password) throws Exception {
-        String sql = "SELECT salt, password_hash FROM users WHERE email = ?";
+        String sql =
+            "SELECT salt, password_hash, wrap_salt, wrapped_vault_key, wrap_kdf_algorithm, wrap_kdf_iterations " +
+            "FROM users WHERE email = ?";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -63,17 +75,33 @@ public class PasswordManager {
 
                 String salt = rs.getString("salt");
                 String storedHash = rs.getString("password_hash");
+                String wrapSalt = rs.getString("wrap_salt");
+                String wrappedVaultKey = rs.getString("wrapped_vault_key");
 
                 if (!HashUtil.verifyPassword(password, salt, storedHash)) {
                     return null;
                 }
 
-                if (!HashUtil.isPbkdf2Hash(storedHash)) {
-                    upgradeLegacyHash(conn, email, password, salt);
+                boolean needsHashUpgrade = !HashUtil.isPbkdf2Hash(storedHash);
+                String directVaultKey = HashUtil.deriveVaultKey(password, salt);
+                String legacyVaultKey = EncryptionUtil.deriveLegacyVaultKey(password, salt);
+
+                if (needsHashUpgrade || isWrappedVaultKeyMissing(wrapSalt, wrappedVaultKey)) {
+                    directVaultKey = upgradeUserCryptoModel(
+                        conn,
+                        email,
+                        password,
+                        salt,
+                        directVaultKey,
+                        legacyVaultKey,
+                        needsHashUpgrade
+                    );
+                    wrapSalt = getWrapSalt(conn, email);
+                    wrappedVaultKey = getWrappedVaultKey(conn, email);
                 }
 
-                String vaultKey = HashUtil.deriveVaultKey(password, salt);
-                String legacyVaultKey = EncryptionUtil.deriveLegacyVaultKey(password, salt);
+                String wrappingKey = HashUtil.deriveWrappingKey(password, wrapSalt);
+                String vaultKey = EncryptionUtil.unwrapVaultKey(wrappedVaultKey, wrappingKey);
 
                 return new LoginResult(email, vaultKey, legacyVaultKey);
             }
@@ -162,6 +190,111 @@ public class PasswordManager {
             ps.setString(1, HashUtil.hashPassword(password, salt));
             ps.setString(2, email);
             ps.executeUpdate();
+        }
+    }
+
+    private static boolean isWrappedVaultKeyMissing(String wrapSalt, String wrappedVaultKey) {
+        return wrapSalt == null || wrapSalt.isBlank() || wrappedVaultKey == null || wrappedVaultKey.isBlank();
+    }
+
+    private static String upgradeUserCryptoModel(
+        Connection conn,
+        String email,
+        String password,
+        String salt,
+        String directVaultKey,
+        String legacyVaultKey,
+        boolean needsHashUpgrade
+    ) throws Exception {
+        boolean originalAutoCommit = conn.getAutoCommit();
+
+        try {
+            conn.setAutoCommit(false);
+
+            if (needsHashUpgrade) {
+                upgradeLegacyHash(conn, email, password, salt);
+            }
+
+            String wrapSalt = HashUtil.generateSalt();
+            String wrappingKey = HashUtil.deriveWrappingKey(password, wrapSalt);
+            String newVaultKey = EncryptionUtil.generateVaultKey();
+            String wrappedVaultKey = EncryptionUtil.wrapVaultKey(newVaultKey, wrappingKey);
+
+            migratePasswordEntries(conn, email, directVaultKey, legacyVaultKey, newVaultKey);
+            storeWrappedVaultKey(conn, email, wrapSalt, wrappedVaultKey);
+
+            conn.commit();
+            return newVaultKey;
+        } catch (Exception e) {
+            conn.rollback();
+            throw e;
+        } finally {
+            conn.setAutoCommit(originalAutoCommit);
+        }
+    }
+
+    private static void migratePasswordEntries(
+        Connection conn,
+        String email,
+        String directVaultKey,
+        String legacyVaultKey,
+        String newVaultKey
+    ) throws Exception {
+        String selectSql = "SELECT id, encrypted_password FROM passwords WHERE user_email = ?";
+        String updateSql = "UPDATE passwords SET encrypted_password = ? WHERE id = ?";
+
+        try (PreparedStatement select = conn.prepareStatement(selectSql);
+             PreparedStatement update = conn.prepareStatement(updateSql)) {
+
+            select.setString(1, email);
+
+            try (ResultSet rs = select.executeQuery()) {
+                while (rs.next()) {
+                    int id = rs.getInt("id");
+                    String encrypted = rs.getString("encrypted_password");
+                    String plainText = EncryptionUtil.decrypt(encrypted, directVaultKey, legacyVaultKey);
+                    String reEncrypted = EncryptionUtil.encrypt(plainText, newVaultKey);
+
+                    update.setString(1, reEncrypted);
+                    update.setInt(2, id);
+                    update.addBatch();
+                }
+            }
+
+            update.executeBatch();
+        }
+    }
+
+    private static void storeWrappedVaultKey(Connection conn, String email, String wrapSalt, String wrappedVaultKey) throws SQLException {
+        String sql =
+            "UPDATE users SET wrap_salt = ?, wrapped_vault_key = ?, wrap_kdf_algorithm = ?, wrap_kdf_iterations = ? " +
+            "WHERE email = ?";
+
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, wrapSalt);
+            ps.setString(2, wrappedVaultKey);
+            ps.setString(3, HashUtil.getPasswordKdfAlgorithm());
+            ps.setInt(4, HashUtil.getDefaultIterations());
+            ps.setString(5, email);
+            ps.executeUpdate();
+        }
+    }
+
+    private static String getWrapSalt(Connection conn, String email) throws SQLException {
+        return getUserCryptoField(conn, email, "wrap_salt");
+    }
+
+    private static String getWrappedVaultKey(Connection conn, String email) throws SQLException {
+        return getUserCryptoField(conn, email, "wrapped_vault_key");
+    }
+
+    private static String getUserCryptoField(Connection conn, String email, String columnName) throws SQLException {
+        String sql = "SELECT " + columnName + " FROM users WHERE email = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, email);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getString(columnName) : null;
+            }
         }
     }
 }
