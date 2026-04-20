@@ -1,7 +1,15 @@
+import java.net.URL;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class PhishingDetectorEngine {
+
+    private static final Pattern FORM_ACTION_PATTERN =
+        Pattern.compile("action\\s*=\\s*[\"']?([^\"'\\s>]+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern HIDDEN_INPUT_PATTERN =
+        Pattern.compile("<input[^>]*type\\s*=\\s*[\"']hidden[\"'][^>]*>", Pattern.CASE_INSENSITIVE);
 
     private final PhishingTrie trustedDomainTrie;
     private final HashMap<Character, Character> homoglyphMap;
@@ -46,6 +54,7 @@ public class PhishingDetectorEngine {
         checkHyphen(parser);
         checkKeywords(parser);
         checkIPAddress(parser);
+        inspectLivePage(inputUrl, parser);
 
         int finalScore = criticalThreat ? Math.max(totalScore, 11) : totalScore;
         boolean plainHttpTrustedDomain = trustedDomainMatch && "http".equals(parser.protocol);
@@ -134,6 +143,15 @@ public class PhishingDetectorEngine {
         scoreWeights.put("HyphenOveruse", 2);
         scoreWeights.put("KeywordFound", 3);
         scoreWeights.put("IPAddress", 5);
+        scoreWeights.put("RedirectDepth", 3);
+        scoreWeights.put("RedirectLoop", 5);
+        scoreWeights.put("RedirectDomainChange", 4);
+        scoreWeights.put("RedirectDowngrade", 4);
+        scoreWeights.put("PasswordForm", 6);
+        scoreWeights.put("ExternalFormAction", 5);
+        scoreWeights.put("BrandContentMismatch", 5);
+        scoreWeights.put("HiddenFieldAbuse", 2);
+        scoreWeights.put("SuspiciousScript", 3);
     }
 
     private void addReason(String ruleName, String message) {
@@ -183,12 +201,7 @@ public class PhishingDetectorEngine {
     }
 
     private void checkBrandMisuse(PhishingURLParser url) {
-        String[] brands = {
-            "paypal", "google", "amazon", "apple", "microsoft", "facebook", "netflix",
-            "linkedin", "twitter", "sbi", "hdfc", "icici", "axis", "kotak", "flipkart",
-            "instagram", "whatsapp", "spotify", "youtube", "gmail", "paytm", "phonepe",
-            "razorpay", "irctc", "uidai"
-        };
+        String[] brands = getKnownBrands();
 
         String normalizedDomain = normalizeLookalikes(url.domain);
         for (String brand : brands) {
@@ -290,6 +303,143 @@ public class PhishingDetectorEngine {
         if (url.domain.matches("\\d{1,3}(\\.\\d{1,3}){3}")) {
             addReason("IPAddress", "Raw IP address used instead of a normal domain name.");
         }
+    }
+
+    private void inspectLivePage(String inputUrl, PhishingURLParser originalParser) {
+        PhishingFetchResult fetchResult = PhishingPageFetcher.fetch(inputUrl);
+        if (!fetchResult.wasFetched()) {
+            return;
+        }
+
+        analyzeRedirects(fetchResult, originalParser);
+
+        String html = fetchResult.getHtml();
+        if (html == null || html.isBlank()) {
+            return;
+        }
+
+        PhishingURLParser finalParser = new PhishingURLParser();
+        finalParser.parse(fetchResult.getFinalUrl());
+        analyzeFetchedHtml(html, finalParser);
+    }
+
+    private void analyzeRedirects(PhishingFetchResult fetchResult, PhishingURLParser originalParser) {
+        LinkedList<String> chain = fetchResult.getRedirectChain();
+        if (fetchResult.hasRedirectLoop()) {
+            criticalThreat = true;
+            addReason("RedirectLoop", "Redirect loop detected while expanding the URL.");
+        }
+
+        if (fetchResult.isRedirectLimitReached() || chain.size() > 3) {
+            addReason("RedirectDepth", "Long redirect chain detected before reaching the final page.");
+        }
+
+        for (int i = 1; i < chain.size(); i++) {
+            PhishingURLParser previous = new PhishingURLParser();
+            PhishingURLParser current = new PhishingURLParser();
+            previous.parse(chain.get(i - 1));
+            current.parse(chain.get(i));
+
+            if ("https".equals(previous.protocol) && "http".equals(current.protocol)) {
+                addReason("RedirectDowngrade", "Redirect chain downgrades from HTTPS to HTTP.");
+                break;
+            }
+        }
+
+        if (chain.size() > 1) {
+            PhishingURLParser finalParser = new PhishingURLParser();
+            finalParser.parse(fetchResult.getFinalUrl());
+            if (!sameFamily(finalParser, originalParser.domain)) {
+                addReason("RedirectDomainChange", "Redirect chain ends on a different domain: " + finalParser.domain + ".");
+            }
+        }
+    }
+
+    private void analyzeFetchedHtml(String html, PhishingURLParser finalParser) {
+        String lowerHtml = html.toLowerCase();
+        boolean trustedFinalDomain = trustedDomainTrie.search(finalParser.domain);
+        boolean hasPasswordField = containsPasswordField(lowerHtml);
+        boolean hasForm = lowerHtml.contains("<form");
+
+        if (hasForm && hasPasswordField && !trustedFinalDomain) {
+            addReason("PasswordForm", "Fetched page contains a password form on an untrusted domain.");
+            criticalThreat = true;
+        }
+
+        if (hasSuspiciousFormAction(html, finalParser.domain)) {
+            addReason("ExternalFormAction", "Form submits data to a different host than the page itself.");
+        }
+
+        if (countHiddenInputs(html) >= 4) {
+            addReason("HiddenFieldAbuse", "Page contains many hidden form fields, which is a common phishing trait.");
+        }
+
+        if (containsSuspiciousScript(lowerHtml)) {
+            addReason("SuspiciousScript", "Page contains obfuscated or redirect-heavy script patterns.");
+        }
+
+        String normalizedDomain = normalizeLookalikes(finalParser.domain);
+        for (String brand : getKnownBrands()) {
+            if (lowerHtml.contains(brand) && !trustedFinalDomain && !normalizedDomain.contains(brand)) {
+                addReason("BrandContentMismatch", "Page content mentions trusted brand '" + brand + "' on an unrelated domain.");
+                if (hasPasswordField) {
+                    criticalThreat = true;
+                }
+                return;
+            }
+        }
+    }
+
+    private boolean containsPasswordField(String lowerHtml) {
+        return lowerHtml.contains("type=\"password\"")
+            || lowerHtml.contains("type='password'")
+            || lowerHtml.contains("type=password");
+    }
+
+    private boolean hasSuspiciousFormAction(String html, String currentDomain) {
+        Matcher matcher = FORM_ACTION_PATTERN.matcher(html);
+        while (matcher.find()) {
+            String action = matcher.group(1).trim();
+            if (action.isEmpty() || action.startsWith("/") || action.startsWith("#")) {
+                continue;
+            }
+
+            try {
+                URL actionUrl = new URL(action);
+                if (!actionUrl.getHost().equalsIgnoreCase(currentDomain)) {
+                    return true;
+                }
+            } catch (Exception ignored) {
+                // Non-absolute action targets are not treated as suspicious here.
+            }
+        }
+        return false;
+    }
+
+    private int countHiddenInputs(String html) {
+        Matcher matcher = HIDDEN_INPUT_PATTERN.matcher(html);
+        int count = 0;
+        while (matcher.find()) {
+            count++;
+        }
+        return count;
+    }
+
+    private boolean containsSuspiciousScript(String lowerHtml) {
+        return lowerHtml.contains("eval(")
+            || lowerHtml.contains("atob(")
+            || lowerHtml.contains("fromcharcode(")
+            || lowerHtml.contains("document.location")
+            || lowerHtml.contains("window.location");
+    }
+
+    private String[] getKnownBrands() {
+        return new String[] {
+            "paypal", "google", "amazon", "apple", "microsoft", "facebook", "netflix",
+            "linkedin", "twitter", "sbi", "hdfc", "icici", "axis", "kotak", "flipkart",
+            "instagram", "whatsapp", "spotify", "youtube", "gmail", "paytm", "phonepe",
+            "razorpay", "irctc", "uidai"
+        };
     }
 
     private String normalizeLookalikes(String domain) {
