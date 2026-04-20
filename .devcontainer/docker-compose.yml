@@ -2,13 +2,21 @@ version: "3.8"
 
 services:
   app:
-    image: mcr.microsoft.com/devcontainers/java:1-21-bookworm
+    build:
+      context: .
+      dockerfile: Dockerfile
     volumes:
       - ..:/workspaces:cached
     working_dir: /workspaces/Password/password-manager
     command: sleep infinity
     depends_on:
       - mysql
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: projectdb
+      DB_USER: root
+      DB_PASSWORD: rootpassword
 
   mysql:
     image: mysql:8.0
