@@ -22,7 +22,7 @@ public class PhishingURLParser {
             protocol = "ftp";
             value = value.substring(6);
         } else {
-            protocol = "unknown";
+            protocol = "https";
         }
 
         int queryIndex = value.indexOf('?');
