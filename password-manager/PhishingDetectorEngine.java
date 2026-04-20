@@ -19,6 +19,7 @@ public class PhishingDetectorEngine {
     private final LinkedList<String> reasons;
     private boolean trustedDomainMatch;
     private boolean criticalThreat;
+    private boolean shortenerDetected;
     private int totalScore;
 
     public PhishingDetectorEngine() {
@@ -41,6 +42,7 @@ public class PhishingDetectorEngine {
         totalScore = 0;
         trustedDomainMatch = false;
         criticalThreat = false;
+        shortenerDetected = false;
 
         checkTrustedDomain(parser);
         checkHTTPS(parser);
@@ -239,7 +241,8 @@ public class PhishingDetectorEngine {
 
         for (String shortener : shorteners) {
             if (url.domain.equals(shortener)) {
-                addReason("Shortener", "URL shortener detected, so the final destination is hidden.");
+                shortenerDetected = true;
+                addReason("Shortener", "Shortened URL detected, so the final destination needs verification.");
                 return;
             }
         }
@@ -314,13 +317,30 @@ public class PhishingDetectorEngine {
         analyzeRedirects(fetchResult, originalParser);
 
         String html = fetchResult.getHtml();
+        PhishingURLParser finalParser = new PhishingURLParser();
+        finalParser.parse(fetchResult.getFinalUrl());
+        reconcileShortenerRisk(fetchResult, finalParser);
+
         if (html == null || html.isBlank()) {
             return;
         }
 
-        PhishingURLParser finalParser = new PhishingURLParser();
-        finalParser.parse(fetchResult.getFinalUrl());
         analyzeFetchedHtml(html, finalParser);
+    }
+
+    private void reconcileShortenerRisk(PhishingFetchResult fetchResult, PhishingURLParser finalParser) {
+        if (!shortenerDetected) {
+            return;
+        }
+
+        boolean trustedFinalDomain = trustedDomainTrie.search(finalParser.domain);
+        boolean httpsFinalDomain = "https".equals(finalParser.protocol);
+        boolean resolvedThroughRedirect = fetchResult.getRedirectChain().size() > 1;
+
+        if (trustedFinalDomain && httpsFinalDomain && resolvedThroughRedirect && !fetchResult.hasRedirectLoop()) {
+            totalScore -= scoreWeights.getOrDefault("Shortener", 0);
+            reasons.add("-2 Shortened link resolves cleanly to a trusted HTTPS destination.");
+        }
     }
 
     private void analyzeRedirects(PhishingFetchResult fetchResult, PhishingURLParser originalParser) {
