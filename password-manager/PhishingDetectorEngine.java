@@ -140,6 +140,7 @@ public class PhishingDetectorEngine {
         scoreWeights.put("Homoglyph", 6);
         scoreWeights.put("Punycode", 3);
         scoreWeights.put("Shortener", 2);
+        scoreWeights.put("RiskyShortener", 4);
         scoreWeights.put("SuspiciousTLD", 3);
         scoreWeights.put("SubdomainAbuse", 3);
         scoreWeights.put("HyphenOveruse", 2);
@@ -235,14 +236,23 @@ public class PhishingDetectorEngine {
 
     private void checkShortener(PhishingURLParser url) {
         String[] shorteners = {
-            "bit.ly", "tinyurl.com", "t.co", "lnkd.in", "goo.gl", "ow.ly",
+            "bit.ly", "tinyurl.com", "t.co", "lnkd.in", "goo.gl", "goo.su", "ow.ly",
             "is.gd", "buff.ly", "rebrand.ly", "cutt.ly", "short.io", "bl.ink"
+        };
+        String[] riskyShorteners = {
+            "goo.su"
         };
 
         for (String shortener : shorteners) {
             if (url.domain.equals(shortener)) {
                 shortenerDetected = true;
                 addReason("Shortener", "Shortened URL detected, so the final destination needs verification.");
+                for (String riskyShortener : riskyShorteners) {
+                    if (url.domain.equals(riskyShortener)) {
+                        addReason("RiskyShortener", "This shortener has elevated abuse reports, so treat it with extra caution.");
+                        break;
+                    }
+                }
                 return;
             }
         }
