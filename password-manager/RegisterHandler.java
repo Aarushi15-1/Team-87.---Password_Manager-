@@ -1,7 +1,8 @@
-import com.sun.net.httpserver.*;
-import java.io.*;
-import java.net.URLDecoder;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 public class RegisterHandler implements HttpHandler {
 
@@ -12,18 +13,9 @@ public class RegisterHandler implements HttpHandler {
                 return;
             }
 
-            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-            String email = "";
-            String password = "";
-
-            for (String pair : body.split("&")) {
-                String[] kv = pair.split("=", 2);
-                String key = URLDecoder.decode(kv[0], StandardCharsets.UTF_8);
-                String val = kv.length > 1 ? URLDecoder.decode(kv[1], StandardCharsets.UTF_8) : "";
-
-                if (key.equals("email")) email = val;
-                if (key.equals("password")) password = val;
-            }
+            Map<String, String> form = RequestUtil.parseFormBody(exchange);
+            String email = form.getOrDefault("email", "");
+            String password = form.getOrDefault("password", "");
 
             PasswordManager.register(email, password);
             exchange.getResponseHeaders().add("Location", "/");

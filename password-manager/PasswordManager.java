@@ -1,13 +1,41 @@
-import java.sql.*;
-import java.util.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 public class PasswordManager {
 
-    // ------------------ REGISTER ------------------
+    public static final class LoginResult {
+        private final String email;
+        private final String vaultKey;
+        private final String legacyVaultKey;
+
+        public LoginResult(String email, String vaultKey, String legacyVaultKey) {
+            this.email = email;
+            this.vaultKey = vaultKey;
+            this.legacyVaultKey = legacyVaultKey;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public String getVaultKey() {
+            return vaultKey;
+        }
+
+        public String getLegacyVaultKey() {
+            return legacyVaultKey;
+        }
+    }
+
     public static void register(String email, String password) throws Exception {
         String salt = HashUtil.generateSalt();
-        String hash = HashUtil.hash(password, salt);
-
+        String hash = HashUtil.hashPassword(password, salt);
         String sql = "INSERT INTO users (email, salt, password_hash) VALUES (?, ?, ?)";
 
         try (Connection conn = DBConnection.getConnection();
@@ -20,8 +48,7 @@ public class PasswordManager {
         }
     }
 
-    // ------------------ LOGIN ------------------
-    public static boolean login(String email, String password) throws Exception {
+    public static LoginResult login(String email, String password) throws Exception {
         String sql = "SELECT salt, password_hash FROM users WHERE email = ?";
 
         try (Connection conn = DBConnection.getConnection();
@@ -30,22 +57,31 @@ public class PasswordManager {
             ps.setString(1, email);
 
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    String salt = rs.getString("salt");
-                    String storedHash = rs.getString("password_hash");
-
-                    String hash = HashUtil.hash(password, salt);
-                    return hash.equals(storedHash);
+                if (!rs.next()) {
+                    return null;
                 }
+
+                String salt = rs.getString("salt");
+                String storedHash = rs.getString("password_hash");
+
+                if (!HashUtil.verifyPassword(password, salt, storedHash)) {
+                    return null;
+                }
+
+                if (!HashUtil.isPbkdf2Hash(storedHash)) {
+                    upgradeLegacyHash(conn, email, password, salt);
+                }
+
+                String vaultKey = HashUtil.deriveVaultKey(password, salt);
+                String legacyVaultKey = EncryptionUtil.deriveLegacyVaultKey(password, salt);
+
+                return new LoginResult(email, vaultKey, legacyVaultKey);
             }
         }
-
-        return false;
     }
 
-    // ------------------ SAVE PASSWORD ------------------
-    public static void savePassword(String email, String website, String username, String password, String key) throws Exception {
-        String encrypted = EncryptionUtil.encrypt(password, key);
+    public static void savePassword(String email, String website, String username, String password, String vaultKey) throws Exception {
+        String encrypted = EncryptionUtil.encrypt(password, vaultKey);
         String strength = PasswordStrength.getStrength(password);
 
         String sql = "INSERT INTO passwords (user_email, website, username, encrypted_password, strength) VALUES (?, ?, ?, ?, ?)";
@@ -62,10 +98,8 @@ public class PasswordManager {
         }
     }
 
-    // ------------------ GET PASSWORDS ------------------
     public static List<PasswordEntry> getPasswords(String email) throws Exception {
         List<PasswordEntry> list = new ArrayList<>();
-
         String sql = "SELECT website, username, encrypted_password, strength FROM passwords WHERE user_email = ?";
 
         try (Connection conn = DBConnection.getConnection();
@@ -89,26 +123,6 @@ public class PasswordManager {
         return list;
     }
 
-    // ------------------ GET SALT ------------------
-    public static String getSalt(String email) throws Exception {
-        String sql = "SELECT salt FROM users WHERE email = ?";
-
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setString(1, email);
-
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getString("salt");
-                }
-            }
-        }
-
-        return null;
-    }
-
-    // ------------------ DSA: REUSE DETECTION ------------------
     public static int countReusedPasswords(List<PasswordEntry> list) {
         Set<String> seen = new HashSet<>();
         int reused = 0;
@@ -124,9 +138,8 @@ public class PasswordManager {
         return reused;
     }
 
-    // ------------------ UPDATE PASSWORD ------------------
-    public static void updatePassword(String email, String website, String newPassword, String key) throws Exception {
-        String encrypted = EncryptionUtil.encrypt(newPassword, key);
+    public static void updatePassword(String email, String website, String newPassword, String vaultKey) throws Exception {
+        String encrypted = EncryptionUtil.encrypt(newPassword, vaultKey);
         String strength = PasswordStrength.getStrength(newPassword);
 
         String sql = "UPDATE passwords SET encrypted_password = ?, strength = ? WHERE user_email = ? AND website = ?";
@@ -142,20 +155,13 @@ public class PasswordManager {
         }
     }
 
-    // ------------------ DERIVE KEY ------------------
-    public static String deriveKey(String email, String password) throws Exception {
-        String salt = getSalt(email);
+    private static void upgradeLegacyHash(Connection conn, String email, String password, String salt) throws SQLException {
+        String sql = "UPDATE users SET password_hash = ? WHERE email = ?";
 
-        String value = password + ":" + salt;
-
-        for (int i = 0; i < 1000; i++) {
-            value = HashUtil.hash(value + i, "");
-
-            if (i % 100 == 0) {
-                value = HashUtil.hash(value + salt, "");
-            }
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, HashUtil.hashPassword(password, salt));
+            ps.setString(2, email);
+            ps.executeUpdate();
         }
-
-        return value.substring(0, 16);
     }
 }

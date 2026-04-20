@@ -1,7 +1,8 @@
-import com.sun.net.httpserver.*;
-import java.io.*;
-import java.net.URLDecoder;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 public class LoginHandler implements HttpHandler {
 
@@ -12,24 +13,22 @@ public class LoginHandler implements HttpHandler {
                 return;
             }
 
-            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-            String email = "";
-            String password = "";
+            Map<String, String> form = RequestUtil.parseFormBody(exchange);
+            String email = form.getOrDefault("email", "");
+            String password = form.getOrDefault("password", "");
 
-            for (String pair : body.split("&")) {
-                String[] kv = pair.split("=", 2);
-                String key = URLDecoder.decode(kv[0], StandardCharsets.UTF_8);
-                String val = kv.length > 1 ? URLDecoder.decode(kv[1], StandardCharsets.UTF_8) : "";
+            PasswordManager.LoginResult login = PasswordManager.login(email, password);
+            if (login != null) {
+                String session = SessionManager.createSession(
+                    login.getEmail(),
+                    login.getVaultKey(),
+                    login.getLegacyVaultKey()
+                );
 
-                if (key.equals("email")) email = val;
-                if (key.equals("password")) password = val;
-            }
-
-            if (PasswordManager.login(email, password)) {
-
-                String session = SessionManager.createSession(email, password);
-
-                exchange.getResponseHeaders().add("Set-Cookie", "session=" + session + "; Path=/");
+                exchange.getResponseHeaders().add(
+                    "Set-Cookie",
+                    "session=" + session + "; Path=/; HttpOnly; SameSite=Lax"
+                );
                 exchange.getResponseHeaders().add("Location", "/dashboard");
 
                 exchange.sendResponseHeaders(302, -1);

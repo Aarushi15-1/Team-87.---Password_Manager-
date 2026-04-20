@@ -1,54 +1,43 @@
-import com.sun.net.httpserver.*;
-import java.io.*;
-import java.net.URLDecoder;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 public class RevealHandler implements HttpHandler {
 
     public void handle(HttpExchange exchange) throws IOException {
-
         try {
-            String cookie = exchange.getRequestHeaders().getFirst("Cookie");
+            String session = SessionManager.extractSessionId(
+                exchange.getRequestHeaders().getFirst("Cookie")
+            );
+            String vaultKey = SessionManager.getVaultKey(session);
+            String legacyVaultKey = SessionManager.getLegacyVaultKey(session);
 
-            String session = null;
-            for (String c : cookie.split(";")) {
-                if (c.trim().startsWith("session=")) {
-                    session = c.split("=")[1];
-                }
+            if (vaultKey == null) {
+                exchange.sendResponseHeaders(401, -1);
+                return;
             }
 
-            String email = SessionManager.getUser(session);
-            String masterPassword = SessionManager.getPassword(session);
-
-            String key = PasswordManager.deriveKey(email, masterPassword);
-
-            // 🔥 PROPER QUERY PARSING
-            String query = exchange.getRequestURI().getQuery();
-
-            String encrypted = null;
-
-            for (String param : query.split("&")) {
-                String[] kv = param.split("=");
-                if (kv[0].equals("data")) {
-                 encrypted = URLDecoder.decode(kv[1], StandardCharsets.UTF_8).replace(" ", "+");                }
-            }
+            Map<String, String> query = RequestUtil.parseQuery(exchange.getRequestURI().getQuery());
+            String encrypted = query.get("data");
 
             if (encrypted == null) {
                 throw new Exception("Missing data");
             }
 
-            String decrypted = EncryptionUtil.decrypt(encrypted, key);
+            String decrypted = EncryptionUtil.decrypt(encrypted, vaultKey, legacyVaultKey);
 
-            exchange.sendResponseHeaders(200, decrypted.length());
-            exchange.getResponseBody().write(decrypted.getBytes());
-            exchange.close();
-
+            byte[] response = decrypted.getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, response.length);
+            exchange.getResponseBody().write(response);
         } catch (Exception e) {
             e.printStackTrace();
 
             String err = "Decryption failed";
             exchange.sendResponseHeaders(500, err.length());
-            exchange.getResponseBody().write(err.getBytes());
+            exchange.getResponseBody().write(err.getBytes(StandardCharsets.UTF_8));
+        } finally {
             exchange.close();
         }
     }

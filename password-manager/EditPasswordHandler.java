@@ -1,47 +1,37 @@
-import com.sun.net.httpserver.*;
-import java.io.*;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import java.io.IOException;
+import java.util.Map;
 
 public class EditPasswordHandler implements HttpHandler {
 
     public void handle(HttpExchange exchange) throws IOException {
-
         try {
-            String cookie = exchange.getRequestHeaders().getFirst("Cookie");
-
-            String session = null;
-            for (String c : cookie.split(";")) {
-                if (c.trim().startsWith("session=")) {
-                    session = c.split("=")[1];
-                }
-            }
-
+            String session = SessionManager.extractSessionId(
+                exchange.getRequestHeaders().getFirst("Cookie")
+            );
             String email = SessionManager.getUser(session);
-            String masterPassword = SessionManager.getPassword(session);
+            String vaultKey = SessionManager.getVaultKey(session);
 
-            String key = PasswordManager.deriveKey(email, masterPassword);
-
-            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-
-            String website = "", password = "";
-
-            for (String pair : body.split("&")) {
-                String[] kv = pair.split("=");
-                String val = URLDecoder.decode(kv[1], "UTF-8");
-
-                if (kv[0].equals("website")) website = val;
-                if (kv[0].equals("password")) password = val;
+            if (email == null || vaultKey == null) {
+                exchange.getResponseHeaders().add("Location", "/");
+                exchange.sendResponseHeaders(302, -1);
+                return;
             }
 
-            PasswordManager.updatePassword(email, website, password, key);
+            Map<String, String> form = RequestUtil.parseFormBody(exchange);
+            String website = form.getOrDefault("website", "");
+            String password = form.getOrDefault("password", "");
+
+            PasswordManager.updatePassword(email, website, password, vaultKey);
 
             exchange.getResponseHeaders().add("Location", "/vault");
             exchange.sendResponseHeaders(302, -1);
-            exchange.close();
-
         } catch (Exception e) {
             e.printStackTrace();
+            exchange.sendResponseHeaders(500, -1);
+        } finally {
+            exchange.close();
         }
     }
 }
