@@ -103,7 +103,7 @@ public class PhishingPageFetcher {
     }
 
     private static String ensureScheme(String inputUrl) {
-        String value = inputUrl == null ? "" : inputUrl.trim();
+        String value = PhishingURLParser.normalizeForAnalysis(inputUrl);
         if (value.startsWith("http://") || value.startsWith("https://")) {
             return value;
         }

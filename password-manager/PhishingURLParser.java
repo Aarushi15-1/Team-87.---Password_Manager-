@@ -10,7 +10,7 @@ public class PhishingURLParser {
 
     public void parse(String url) {
         rawInput = url == null ? "" : url.trim();
-        String value = rawInput.toLowerCase();
+        String value = normalizeForAnalysis(rawInput).toLowerCase();
 
         if (value.startsWith("https://")) {
             protocol = "https";
@@ -62,5 +62,21 @@ public class PhishingURLParser {
             subdomain = "";
             rootDomain = domain;
         }
+    }
+
+    public static String normalizeForAnalysis(String url) {
+        if (url == null) {
+            return "";
+        }
+
+        String normalized = url.trim();
+        normalized = normalized.replace("[.]", ".");
+        normalized = normalized.replace("(.)", ".");
+        normalized = normalized.replace("{.}", ".");
+        normalized = normalized.replace("hxxps://", "https://");
+        normalized = normalized.replace("hxxp://", "http://");
+        normalized = normalized.replace("hxxps:", "https:");
+        normalized = normalized.replace("hxxp:", "http:");
+        return normalized;
     }
 }
