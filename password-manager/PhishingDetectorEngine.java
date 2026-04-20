@@ -457,6 +457,7 @@ public class PhishingDetectorEngine {
                 actionParser.parse(action);
                 boolean sameHost = actionHost.equalsIgnoreCase(currentUrl.domain);
                 boolean sameTrustedFamily = trustedDomainTrie.search(currentUrl.domain)
+                    && trustedDomainTrie.search(actionParser.domain)
                     && sameRegisteredDomain(actionParser, currentUrl);
 
                 if (!sameHost && !sameTrustedFamily) {
@@ -504,18 +505,8 @@ public class PhishingDetectorEngine {
         return normalized.toString();
     }
 
-    private boolean sameFamily(PhishingURLParser url, String trustedDomain) {
-        String trustedTld = extractTld(trustedDomain);
-        return url.tld.equals(trustedTld) || url.domain.endsWith(trustedTld) || trustedDomain.endsWith(url.tld);
-    }
-
     private boolean sameRegisteredDomain(PhishingURLParser left, PhishingURLParser right) {
         return left.rootDomain.equals(right.rootDomain) && left.tld.equals(right.tld);
-    }
-
-    private String extractTld(String domain) {
-        int lastDot = domain.lastIndexOf('.');
-        return lastDot == -1 ? "" : domain.substring(lastDot);
     }
 
     private int levenshteinDistance(String left, String right) {
