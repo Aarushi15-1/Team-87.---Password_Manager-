@@ -1,6 +1,7 @@
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
@@ -25,7 +26,8 @@ public class PhishingPageFetcher {
         for (int hop = 0; hop <= MAX_REDIRECTS; hop++) {
             HttpURLConnection connection = null;
             try {
-                URL url = new URL(currentUrl);
+                URI currentUri = URI.create(currentUrl);
+                URL url = currentUri.toURL();
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setInstanceFollowRedirects(false);
                 connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
@@ -41,7 +43,7 @@ public class PhishingPageFetcher {
                         break;
                     }
 
-                    String resolvedUrl = new URL(url, location).toString();
+                    String resolvedUrl = currentUri.resolve(location).toString();
                     if (visited.contains(resolvedUrl)) {
                         redirectLoop = true;
                         redirectChain.add(resolvedUrl);

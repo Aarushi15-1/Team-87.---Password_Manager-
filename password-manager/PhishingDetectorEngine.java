@@ -1,4 +1,4 @@
-import java.net.URL;
+import java.net.URI;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.regex.Matcher;
@@ -405,8 +405,9 @@ public class PhishingDetectorEngine {
             }
 
             try {
-                URL actionUrl = new URL(action);
-                if (!actionUrl.getHost().equalsIgnoreCase(currentDomain)) {
+                URI actionUri = URI.create(action);
+                String actionHost = actionUri.getHost();
+                if (actionHost != null && !actionHost.equalsIgnoreCase(currentDomain)) {
                     return true;
                 }
             } catch (Exception ignored) {
