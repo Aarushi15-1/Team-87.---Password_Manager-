@@ -408,15 +408,15 @@ public class PhishingDetectorEngine {
             criticalThreat = true;
         }
 
-        if (hasSuspiciousFormAction(html, finalParser.domain)) {
+        if (hasSuspiciousFormAction(html, finalParser)) {
             addReason("ExternalFormAction", "Form submits data to a different host than the page itself.");
         }
 
-        if (countHiddenInputs(html) >= 4) {
+        if (!trustedFinalDomain && countHiddenInputs(html) >= 4) {
             addReason("HiddenFieldAbuse", "Page contains many hidden form fields, which is a common phishing trait.");
         }
 
-        if (containsSuspiciousScript(lowerHtml)) {
+        if (!trustedFinalDomain && containsSuspiciousScript(lowerHtml)) {
             addReason("SuspiciousScript", "Page contains obfuscated or redirect-heavy script patterns.");
         }
 
@@ -438,7 +438,7 @@ public class PhishingDetectorEngine {
             || lowerHtml.contains("type=password");
     }
 
-    private boolean hasSuspiciousFormAction(String html, String currentDomain) {
+    private boolean hasSuspiciousFormAction(String html, PhishingURLParser currentUrl) {
         Matcher matcher = FORM_ACTION_PATTERN.matcher(html);
         while (matcher.find()) {
             String action = matcher.group(1).trim();
@@ -449,7 +449,18 @@ public class PhishingDetectorEngine {
             try {
                 URI actionUri = URI.create(action);
                 String actionHost = actionUri.getHost();
-                if (actionHost != null && !actionHost.equalsIgnoreCase(currentDomain)) {
+                if (actionHost == null) {
+                    continue;
+                }
+
+                PhishingURLParser actionParser = new PhishingURLParser();
+                actionParser.parse(action);
+                boolean sameHost = actionHost.equalsIgnoreCase(currentUrl.domain);
+                boolean sameTrustedFamily = trustedDomainTrie.search(currentUrl.domain)
+                    && trustedDomainTrie.search(actionParser.domain)
+                    && sameFamily(actionParser, currentUrl.domain);
+
+                if (!sameHost && !sameTrustedFamily) {
                     return true;
                 }
             } catch (Exception ignored) {
