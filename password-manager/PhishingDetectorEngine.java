@@ -509,6 +509,16 @@ public class PhishingDetectorEngine {
         return left.rootDomain.equals(right.rootDomain) && left.tld.equals(right.tld);
     }
 
+    private boolean sameFamily(PhishingURLParser url, String trustedDomain) {
+        String trustedTld = extractTld(trustedDomain);
+        return url.tld.equals(trustedTld) || url.domain.endsWith(trustedTld) || trustedDomain.endsWith(url.tld);
+    }
+
+    private String extractTld(String domain) {
+        int lastDot = domain.lastIndexOf('.');
+        return lastDot == -1 ? "" : domain.substring(lastDot);
+    }
+
     private int levenshteinDistance(String left, String right) {
         int[][] dp = new int[left.length() + 1][right.length() + 1];
 
