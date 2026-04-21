@@ -27,7 +27,7 @@ public class Main {
 
         DBConnection.initializeDatabase();
         server.start();
-        System.out.println("Running on port 8080");
+        System.out.println("Running on http://localhost:8080");
     }
 
     private static void serveStaticFile(HttpExchange exchange) throws IOException {
