@@ -2,6 +2,8 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
 public class LoginHandler implements HttpHandler {
@@ -16,9 +18,41 @@ public class LoginHandler implements HttpHandler {
             Map<String, String> form = RequestUtil.parseFormBody(exchange);
             String email = form.getOrDefault("email", "");
             String password = form.getOrDefault("password", "");
+            Double latitude = parseNullableDouble(form.get("latitude"));
+            Double longitude = parseNullableDouble(form.get("longitude"));
+
+            LoginSecurityManager.SuspensionStatus suspension = LoginSecurityManager.getSuspensionStatus(email);
+            if (suspension.isSuspended()) {
+                String until = DateTimeFormatter.ISO_INSTANT.format(
+                    suspension.getSuspendedUntilUtc().atOffset(ZoneOffset.UTC)
+                );
+                sendText(exchange, 423, "Account paused until " + until + " UTC after repeated failed logins.");
+                return;
+            }
 
             PasswordManager.LoginResult login = PasswordManager.login(email, password);
             if (login != null) {
+                LoginRiskResult riskResult = LoginSecurityManager.analyzeLogin(
+                    login.getEmail(),
+                    latitude,
+                    longitude
+                );
+
+                if (riskResult.isHighRisk()) {
+                    PendingLogin pendingLogin = LoginSecurityManager.createPendingLogin(
+                        login.getEmail(),
+                        login.getVaultKey(),
+                        latitude,
+                        longitude,
+                        riskResult
+                    );
+
+                    exchange.getResponseHeaders().add("Location", "/verify2fa?token=" + pendingLogin.getToken());
+                    exchange.sendResponseHeaders(302, -1);
+                    return;
+                }
+
+                LoginSecurityManager.recordSuccessfulLogin(login.getEmail(), latitude, longitude, riskResult);
                 String session = SessionManager.createSession(
                     login.getEmail(),
                     login.getVaultKey()
@@ -34,6 +68,7 @@ public class LoginHandler implements HttpHandler {
                 return;
             }
 
+            LoginSecurityManager.recordFailedLogin(email);
             String res = "Login failed";
             exchange.sendResponseHeaders(200, res.length());
             exchange.getResponseBody().write(res.getBytes(StandardCharsets.UTF_8));
@@ -45,5 +80,24 @@ public class LoginHandler implements HttpHandler {
         } finally {
             exchange.close();
         }
+    }
+
+    private static Double parseNullableDouble(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        try {
+            return Double.parseDouble(value.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static void sendText(HttpExchange exchange, int statusCode, String text) throws IOException {
+        byte[] data = text.getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=UTF-8");
+        exchange.sendResponseHeaders(statusCode, data.length);
+        exchange.getResponseBody().write(data);
     }
 }

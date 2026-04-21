@@ -16,7 +16,7 @@ public class LogoutHandler implements HttpHandler {
                 "session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"
             );
 
-            exchange.getResponseHeaders().add("Location", "/");
+            exchange.getResponseHeaders().add("Location", "/logout.html");
             exchange.sendResponseHeaders(302, -1);
             exchange.close();
         } catch (Exception e) {

@@ -20,6 +20,11 @@
     <form action="/login" method="post">
       <input type="text" name="email" placeholder="Email" required>
       <input type="password" name="password" placeholder="Master Password" required>
+      <p class="helper-text">Optional demo location for suspicious-login detection. No location API is used.</p>
+      <div class="row">
+        <input type="number" step="any" name="latitude" placeholder="Latitude">
+        <input type="number" step="any" name="longitude" placeholder="Longitude">
+      </div>
       <button type="submit">Login</button>
     </form>
 
