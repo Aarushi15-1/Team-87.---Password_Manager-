@@ -1,4 +1,4 @@
-<h1>🔐 PassVault</h1>
+<h1>PassVault</h1>
 
 <h3><i>Smart Security for the Modern Web</i></h3>
 
@@ -6,7 +6,7 @@
 
 <br><br>
 
-<h2>📌 Project Overview</h2>
+<h2> Project Overview</h2>
 
 <p>
 PassVault is a <b>secure password manager web application</b> that allows users to safely store, manage, and analyze passwords.
@@ -16,13 +16,13 @@ It also includes <b>phishing detection</b> and <b>password strength evaluation</
 
 <br>
 
-<h2>⚙️ Key Features</h2>
+<h2> Key Features</h2>
 
 <ul>
-  <li><b>Secure Signup/Login</b> using SHA-256 hashing + salting</li>
+  <li><b>Secure Signup/Login</b> using PBKDF2 (with salting)</li>
   <li><b>Password Strength Checker</b> (Weak / Medium / Strong)</li>
   <li><b>Password Generator</b> with customizable options</li>
-  <li><b>Encrypted Password Storage</b></li>
+  <li><b>Encrypted Password Storage</b>using AES</li>
   <li><b>Weak Password Detection</b> across accounts</li>
   <li><b>Login Alert System</b> (time + location tracking)</li>
   <li><b>Phishing Website Detection</b> using URL analysis</li>
@@ -30,7 +30,7 @@ It also includes <b>phishing detection</b> and <b>password strength evaluation</
 
 <br>
 
-<h2>🧠 DSA Concepts Used</h2>
+<h2> DSA Concepts Used</h2>
 
 <ul>
   <li><b>Hashing</b> → Secure user authentication</li>
@@ -41,17 +41,17 @@ It also includes <b>phishing detection</b> and <b>password strength evaluation</
 
 <br>
 
-<h2>💻 Tech Stack</h2>
+<h2> Tech Stack</h2>
 
 <ul>
-  <li><b>Frontend:</b> (Add your tech)</li>
-  <li><b>Backend:</b> (Add your tech)</li>
-  <li><b>Database:</b> (Add your tech)</li>
+  <li><b>Frontend:</b> HTML and CSS</li>
+  <li><b>Backend:</b> JAVA</li>
+  <li><b>Database:</b> MySQL</li>
 </ul>
 
 <br>
 
-<h2>⚡ How It Works</h2>
+<h2> How It Works</h2>
 
 <ol>
   <li>User signs up and logs in</li>
@@ -62,7 +62,7 @@ It also includes <b>phishing detection</b> and <b>password strength evaluation</
 
 <br>
 
-<h2>🛠️ Setup Instructions</h2>
+<h2> Setup Instructions</h2>
 
 <ul>
   <li>Clone the repository</li>
