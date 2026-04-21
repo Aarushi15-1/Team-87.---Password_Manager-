@@ -22,7 +22,7 @@ It also includes <b>phishing detection</b> and <b>password strength evaluation</
   <li><b>Secure Signup/Login</b> using PBKDF2 (with salting)</li>
   <li><b>Password Strength Checker</b> (Weak / Medium / Strong)</li>
   <li><b>Password Generator</b> with customizable options</li>
-  <li><b>Encrypted Password Storage</b>using AES</li>
+  <li><b>Encrypted Password Storage</b> using AES</li>
   <li><b>Weak Password Detection</b> across accounts</li>
   <li><b>Login Alert System</b> (time + location tracking)</li>
   <li><b>Phishing Website Detection</b> using URL analysis</li>
@@ -61,14 +61,5 @@ It also includes <b>phishing detection</b> and <b>password strength evaluation</
 </ol>
 
 <br>
-
-<h2> Setup Instructions</h2>
-
-<ul>
-  <li>Clone the repository</li>
-  <li>Navigate to the project folder</li>
-  <li>Install dependencies</li>
-  <li>Run the project</li>
-</ul>
 
 <br>
