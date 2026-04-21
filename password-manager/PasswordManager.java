@@ -1,6 +1,7 @@
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -27,6 +28,8 @@ public class PasswordManager {
     }
 
     public static void register(String email, String password) throws Exception {
+        String normalizedEmail = AuthValidation.requireValidEmail(email);
+        AuthValidation.requireValidPassword(password);
         String salt = HashUtil.generateSalt();
         String hash = HashUtil.hashPassword(password, salt);
         String wrapSalt = HashUtil.generateSalt();
@@ -40,7 +43,7 @@ public class PasswordManager {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            ps.setString(1, email);
+            ps.setString(1, normalizedEmail);
             ps.setString(2, salt);
             ps.setString(3, hash);
             ps.setString(4, wrapSalt);
@@ -48,10 +51,14 @@ public class PasswordManager {
             ps.setString(6, HashUtil.getPasswordKdfAlgorithm());
             ps.setInt(7, HashUtil.getDefaultIterations());
             ps.executeUpdate();
+        } catch (SQLIntegrityConstraintViolationException e) {
+            throw new AuthException("An account with this email already exists.");
         }
     }
 
     public static LoginResult login(String email, String password) throws Exception {
+        String normalizedEmail = AuthValidation.requireValidEmail(email);
+        AuthValidation.requireValidPassword(password);
         String sql =
             "SELECT salt, password_hash, wrap_salt, wrapped_vault_key, wrap_kdf_algorithm, wrap_kdf_iterations " +
             "FROM users WHERE email = ?";
@@ -59,7 +66,7 @@ public class PasswordManager {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            ps.setString(1, email);
+            ps.setString(1, normalizedEmail);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
@@ -82,7 +89,7 @@ public class PasswordManager {
                 String wrappingKey = HashUtil.deriveWrappingKey(password, wrapSalt);
                 String vaultKey = EncryptionUtil.unwrapVaultKey(wrappedVaultKey, wrappingKey);
 
-                return new LoginResult(email, vaultKey);
+                return new LoginResult(normalizedEmail, vaultKey);
             }
         }
     }

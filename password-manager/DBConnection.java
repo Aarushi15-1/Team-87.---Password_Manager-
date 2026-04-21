@@ -1,9 +1,12 @@
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
 public class DBConnection {
+    private static final String AUTH_DATA_RESET_VERSION = getEnv("AUTH_DATA_RESET_VERSION", "2026-04-21-auth-reset");
     private static final String[] HOSTS = {
         getEnv("DB_HOST", "mysql"),
         "127.0.0.1",
@@ -59,6 +62,11 @@ public class DBConnection {
                 "wrap_kdf_algorithm VARCHAR(50) NULL, " +
                 "wrap_kdf_iterations INT NULL)"
             );
+            stmt.executeUpdate(
+                "CREATE TABLE IF NOT EXISTS app_meta (" +
+                "meta_key VARCHAR(100) PRIMARY KEY, " +
+                "meta_value VARCHAR(255) NOT NULL)"
+            );
             ensureColumn(stmt, "users", "wrap_salt", "VARCHAR(255) NULL");
             ensureColumn(stmt, "users", "wrapped_vault_key", "TEXT NULL");
             ensureColumn(stmt, "users", "wrap_kdf_algorithm", "VARCHAR(50) NULL");
@@ -87,6 +95,8 @@ public class DBConnection {
                 "scanned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
                 "FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE)"
             );
+
+            resetAuthDataIfNeeded(conn);
         }
     }
 
@@ -98,6 +108,60 @@ public class DBConnection {
             if (message == null || !message.toLowerCase().contains("duplicate column")) {
                 throw e;
             }
+        }
+    }
+
+    private static void resetAuthDataIfNeeded(Connection conn) throws SQLException {
+        String appliedVersion = readMetaValue(conn, "auth_data_reset_version");
+        if (AUTH_DATA_RESET_VERSION.equals(appliedVersion)) {
+            return;
+        }
+
+        boolean originalAutoCommit = conn.getAutoCommit();
+        conn.setAutoCommit(false);
+
+        try (Statement stmt = conn.createStatement()) {
+            // One-time cleanup so older accounts do not survive the new auth rules rollout.
+            stmt.executeUpdate("DELETE FROM phishing_scans");
+            stmt.executeUpdate("DELETE FROM passwords");
+            stmt.executeUpdate("DELETE FROM users");
+            stmt.executeUpdate("ALTER TABLE phishing_scans AUTO_INCREMENT = 1");
+            stmt.executeUpdate("ALTER TABLE passwords AUTO_INCREMENT = 1");
+            upsertMetaValue(conn, "auth_data_reset_version", AUTH_DATA_RESET_VERSION);
+            conn.commit();
+        } catch (SQLException e) {
+            conn.rollback();
+            throw e;
+        } finally {
+            conn.setAutoCommit(originalAutoCommit);
+        }
+    }
+
+    private static String readMetaValue(Connection conn, String key) throws SQLException {
+        String sql = "SELECT meta_value FROM app_meta WHERE meta_key = ?";
+
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, key);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("meta_value");
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static void upsertMetaValue(Connection conn, String key, String value) throws SQLException {
+        String sql =
+            "INSERT INTO app_meta (meta_key, meta_value) VALUES (?, ?) " +
+            "ON DUPLICATE KEY UPDATE meta_value = VALUES(meta_value)";
+
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, key);
+            ps.setString(2, value);
+            ps.executeUpdate();
         }
     }
 }

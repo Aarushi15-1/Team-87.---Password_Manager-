@@ -1,6 +1,7 @@
 import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
 import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -46,6 +47,17 @@ public class WebUtils {
         exchange.close();
     }
 
+    public static void redirectWithFlash(HttpExchange exchange, String location, String form, String type, String message) throws IOException {
+        String separator = location.contains("?") ? "&" : "?";
+        String target =
+            location +
+            separator +
+            "form=" + urlEncode(form) +
+            "&type=" + urlEncode(type) +
+            "&message=" + urlEncode(message);
+        redirect(exchange, target);
+    }
+
     public static String escapeHtml(String value) {
         if (value == null) {
             return "";
@@ -78,5 +90,9 @@ public class WebUtils {
         exchange.sendResponseHeaders(statusCode, data.length);
         exchange.getResponseBody().write(data);
         exchange.close();
+    }
+
+    private static String urlEncode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 }
