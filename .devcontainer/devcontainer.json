@@ -5,7 +5,7 @@
   "workspaceFolder": "/workspaces/Password/password-manager",
   "postCreateCommand": "bash ../.devcontainer/start-app.sh --prepare-only",
   "postStartCommand": "bash ../.devcontainer/start-app.sh",
-  "forwardPorts": [3306],
+  "forwardPorts": [8080, 3306],
   "portsAttributes": {
     "8080": {
       "label": "Password Manager App",
