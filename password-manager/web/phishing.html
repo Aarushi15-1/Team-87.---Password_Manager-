@@ -35,9 +35,6 @@
         <h3 id="verdictLabel">SAFE</h3>
         <p id="verdictDetail" class="helper-text"></p>
       </div>
-      <div class="score-pill">
-        <span id="scoreValue">0</span>
-      </div>
     </div>
   </div>
 </div>
@@ -89,7 +86,6 @@ function renderResult(data) {
 
   document.getElementById("verdictLabel").textContent = data.verdict;
   document.getElementById("verdictDetail").textContent = data.detail;
-  document.getElementById("scoreValue").textContent = score;
 }
 </script>
 
