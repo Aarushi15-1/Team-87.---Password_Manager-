@@ -8,6 +8,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class Main {
+    private static final int DATABASE_INIT_ATTEMPTS = 30;
+    private static final long DATABASE_INIT_DELAY_MS = 2000;
 
     public static void main(String[] args) throws Exception {
         HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
@@ -27,9 +29,40 @@ public class Main {
         server.createContext("/editPassword", new EditPasswordHandler());
         server.createContext("/generate", new GenerateHandler());
 
-        DBConnection.initializeDatabase();
         server.start();
         System.out.println("Running on port 8080");
+        startDatabaseInitializer();
+    }
+
+    private static void startDatabaseInitializer() {
+        Thread dbInitializer = new Thread(() -> {
+            for (int attempt = 1; attempt <= DATABASE_INIT_ATTEMPTS; attempt++) {
+                try {
+                    DBConnection.initializeDatabase();
+                    System.out.println("Database initialized");
+                    return;
+                } catch (Exception e) {
+                    System.err.println(
+                        "Database initialization attempt " + attempt + " failed: " + e.getMessage()
+                    );
+
+                    if (attempt == DATABASE_INIT_ATTEMPTS) {
+                        e.printStackTrace();
+                        return;
+                    }
+
+                    try {
+                        Thread.sleep(DATABASE_INIT_DELAY_MS);
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
+            }
+        });
+
+        dbInitializer.setDaemon(true);
+        dbInitializer.start();
     }
 
     private static void serveStaticFile(HttpExchange exchange) throws IOException {
