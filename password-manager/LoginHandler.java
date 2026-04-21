@@ -2,7 +2,9 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
@@ -23,10 +25,7 @@ public class LoginHandler implements HttpHandler {
 
             LoginSecurityManager.SuspensionStatus suspension = LoginSecurityManager.getSuspensionStatus(email);
             if (suspension.isSuspended()) {
-                String until = DateTimeFormatter.ISO_INSTANT.format(
-                    suspension.getSuspendedUntilUtc().atOffset(ZoneOffset.UTC)
-                );
-                sendText(exchange, 423, "Account paused until " + until + " UTC after repeated failed logins.");
+                sendText(exchange, 423, pausedAccountMessage(suspension.getSuspendedUntilUtc()));
                 return;
             }
 
@@ -99,5 +98,15 @@ public class LoginHandler implements HttpHandler {
         exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=UTF-8");
         exchange.sendResponseHeaders(statusCode, data.length);
         exchange.getResponseBody().write(data);
+    }
+
+    private static String pausedAccountMessage(Instant suspendedUntilUtc) {
+        ZonedDateTime utcTime = suspendedUntilUtc.atZone(ZoneOffset.UTC);
+        ZonedDateTime indiaTime = suspendedUntilUtc.atZone(java.time.ZoneId.of("Asia/Kolkata"));
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm:ss a z");
+
+        return "Account paused after repeated failed logins.\n" +
+            "Unlock time (India): " + indiaTime.format(formatter) + "\n" +
+            "Unlock time (UTC): " + utcTime.format(formatter);
     }
 }
