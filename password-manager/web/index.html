@@ -22,6 +22,9 @@
     <form action="/login" method="post">
       <input type="email" name="email" placeholder="Email" autocomplete="username" required>
       <input type="password" name="password" placeholder="Master Password" minlength="8" autocomplete="current-password" required>
+      <input type="hidden" id="latitude" name="latitude">
+      <input type="hidden" id="longitude" name="longitude">
+      <p id="locationStatus" class="location-status">Checking login location securely...</p>
       <button type="submit">Login</button>
     </form>
 
@@ -50,6 +53,30 @@
     if (form) {
       messageBox.setAttribute("data-form", form);
     }
+  }
+
+  const statusText = document.getElementById("locationStatus");
+  const latitudeInput = document.getElementById("latitude");
+  const longitudeInput = document.getElementById("longitude");
+
+  if (!navigator.geolocation) {
+    statusText.textContent = "Location is unavailable in this browser. Login will continue without location risk analysis.";
+  } else {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        latitudeInput.value = position.coords.latitude;
+        longitudeInput.value = position.coords.longitude;
+        statusText.textContent = "Login location captured for suspicious-login detection.";
+      },
+      () => {
+        statusText.textContent = "Location permission was not granted. Login will continue without location risk analysis.";
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 8000,
+        maximumAge: 300000
+      }
+    );
   }
 </script>
 

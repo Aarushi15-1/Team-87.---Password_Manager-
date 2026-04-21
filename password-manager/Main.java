@@ -15,6 +15,8 @@ public class Main {
         server.createContext("/", Main::serveStaticFile);
         server.createContext("/register", new RegisterHandler());
         server.createContext("/login", new LoginHandler());
+        server.createContext("/verify2fa", new TwoFactorPageHandler());
+        server.createContext("/submit2fa", new TwoFactorVerifyHandler());
         server.createContext("/addPassword", new AddPasswordHandler());
         server.createContext("/dashboard", new DashboardHandler());
         server.createContext("/vault", new VaultHandler());

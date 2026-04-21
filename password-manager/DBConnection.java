@@ -96,6 +96,29 @@ public class DBConnection {
                 "FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE)"
             );
 
+            stmt.executeUpdate(
+                "CREATE TABLE IF NOT EXISTS login_history (" +
+                "id INT AUTO_INCREMENT PRIMARY KEY, " +
+                "user_email VARCHAR(255) NOT NULL, " +
+                "latitude DOUBLE NULL, " +
+                "longitude DOUBLE NULL, " +
+                "login_time_utc TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                "speed_kmph DOUBLE NULL, " +
+                "risk_status VARCHAR(50) NOT NULL, " +
+                "FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE)"
+            );
+
+            stmt.executeUpdate(
+                "CREATE TABLE IF NOT EXISTS login_security (" +
+                "user_email VARCHAR(255) PRIMARY KEY, " +
+                "failed_attempts INT NOT NULL DEFAULT 0, " +
+                "suspension_level INT NOT NULL DEFAULT 0, " +
+                "suspended_until_utc TIMESTAMP NULL, " +
+                "two_factor_required BOOLEAN NOT NULL DEFAULT FALSE, " +
+                "two_factor_code VARCHAR(20) NULL, " +
+                "FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE)"
+            );
+
             resetAuthDataIfNeeded(conn);
         }
     }
