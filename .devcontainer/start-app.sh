@@ -9,16 +9,7 @@ LOG_FILE="/tmp/password-manager.log"
 STAMP_FILE="/tmp/password-manager.sha"
 
 ensure_mysql_client() {
-  if command -v mysql >/dev/null 2>&1 && command -v mysqladmin >/dev/null 2>&1; then
-    return
-  fi
-
-  sudo apt-get update
-  sudo apt-get install -y mariadb-client
-
-  if [ -x /usr/bin/mariadb ] && [ ! -x /usr/local/bin/mysql ]; then
-    sudo ln -sf /usr/bin/mariadb /usr/local/bin/mysql
-  fi
+  bash "${SCRIPT_DIR}/install-mysql-client.sh"
 }
 
 wait_for_mysql() {
