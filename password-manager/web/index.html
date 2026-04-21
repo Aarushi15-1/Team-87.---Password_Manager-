@@ -20,11 +20,9 @@
     <form action="/login" method="post">
       <input type="text" name="email" placeholder="Email" required>
       <input type="password" name="password" placeholder="Master Password" required>
-      <p class="helper-text">Optional demo location for suspicious-login detection. No location API is used.</p>
-      <div class="row">
-        <input type="number" step="any" name="latitude" placeholder="Latitude">
-        <input type="number" step="any" name="longitude" placeholder="Longitude">
-      </div>
+      <input type="hidden" id="latitude" name="latitude">
+      <input type="hidden" id="longitude" name="longitude">
+      <p id="locationStatus" class="location-status">Checking login location securely...</p>
       <button type="submit">Login</button>
     </form>
 
@@ -38,6 +36,32 @@
     </form>
   </div>
 </div>
+
+<script>
+  const statusText = document.getElementById("locationStatus");
+  const latitudeInput = document.getElementById("latitude");
+  const longitudeInput = document.getElementById("longitude");
+
+  if (!navigator.geolocation) {
+    statusText.textContent = "Location is unavailable in this browser. Login will continue without location risk analysis.";
+  } else {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        latitudeInput.value = position.coords.latitude;
+        longitudeInput.value = position.coords.longitude;
+        statusText.textContent = "Login location captured for suspicious-login detection.";
+      },
+      () => {
+        statusText.textContent = "Location permission was not granted. Login will continue without location risk analysis.";
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 8000,
+        maximumAge: 300000
+      }
+    );
+  }
+</script>
 
 </body>
 </html>
