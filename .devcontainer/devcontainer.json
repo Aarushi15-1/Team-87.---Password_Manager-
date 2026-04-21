@@ -3,8 +3,8 @@
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
   "workspaceFolder": "/workspaces/Password/password-manager",
-  "postCreateCommand": "bash ../.devcontainer/start-app.sh --prepare-only",
-  "postStartCommand": "bash ../.devcontainer/start-app.sh",
+  "postCreateCommand": "bash ../.devcontainer/start-app.sh --prepare-only || true",
+  "postStartCommand": "bash ../.devcontainer/start-app.sh --background || true",
   "forwardPorts": [8080, 3306],
   "portsAttributes": {
     "8080": {

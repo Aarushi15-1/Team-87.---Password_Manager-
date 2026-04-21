@@ -136,6 +136,13 @@ main() {
   wait_for_mysql
   compile_app
   launch_app
+
+  if [ "${1:-}" = "--background" ]; then
+    echo "${stamp}" > "${STAMP_FILE}"
+    echo "Password Manager startup requested in background. Check /tmp/password-manager.log if needed."
+    exit 0
+  fi
+
   wait_for_app
   echo "${stamp}" > "${STAMP_FILE}"
 
