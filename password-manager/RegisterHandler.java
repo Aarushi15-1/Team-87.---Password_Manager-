@@ -1,7 +1,6 @@
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 public class RegisterHandler implements HttpHandler {
@@ -18,13 +17,12 @@ public class RegisterHandler implements HttpHandler {
             String password = form.getOrDefault("password", "");
 
             PasswordManager.register(email, password);
-            exchange.getResponseHeaders().add("Location", "/");
-            exchange.sendResponseHeaders(302, -1);
+            WebUtils.redirectWithFlash(exchange, "/", "register", "success", "Registration successful. Please log in.");
+        } catch (AuthException e) {
+            WebUtils.redirectWithFlash(exchange, "/", "register", "error", e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
-            String res = "Registration failed";
-            exchange.sendResponseHeaders(500, res.length());
-            exchange.getResponseBody().write(res.getBytes(StandardCharsets.UTF_8));
+            WebUtils.redirectWithFlash(exchange, "/", "register", "error", "Registration failed. Please try again.");
         } finally {
             exchange.close();
         }

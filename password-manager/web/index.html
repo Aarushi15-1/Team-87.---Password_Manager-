@@ -16,10 +16,12 @@
 <div class="main">
   <div class="card">
     <h2>Login</h2>
+    <p class="auth-hint">Use a real email like <code>name@gmail.com</code> and a password with at least 8 characters.</p>
+    <div id="auth-message" class="status-message" hidden></div>
 
     <form action="/login" method="post">
-      <input type="text" name="email" placeholder="Email" required>
-      <input type="password" name="password" placeholder="Master Password" required>
+      <input type="email" name="email" placeholder="Email" autocomplete="username" required>
+      <input type="password" name="password" placeholder="Master Password" minlength="8" autocomplete="current-password" required>
       <button type="submit">Login</button>
     </form>
 
@@ -27,12 +29,29 @@
 
     <h3>Register</h3>
     <form action="/register" method="post">
-      <input type="text" name="email" placeholder="Email" required>
-      <input type="password" name="password" placeholder="Password" required>
+      <input type="email" name="email" placeholder="Email" autocomplete="email" required>
+      <input type="password" name="password" placeholder="Password" minlength="8" autocomplete="new-password" required>
       <button type="submit">Register</button>
     </form>
   </div>
 </div>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const message = params.get("message");
+  const type = params.get("type");
+  const form = params.get("form");
+  const messageBox = document.getElementById("auth-message");
+
+  if (message && messageBox) {
+    messageBox.hidden = false;
+    messageBox.textContent = message;
+    messageBox.classList.add(type === "success" ? "status-success" : "status-error");
+    if (form) {
+      messageBox.setAttribute("data-form", form);
+    }
+  }
+</script>
 
 </body>
 </html>

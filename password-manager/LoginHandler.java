@@ -1,7 +1,6 @@
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 public class LoginHandler implements HttpHandler {
@@ -34,14 +33,12 @@ public class LoginHandler implements HttpHandler {
                 return;
             }
 
-            String res = "Login failed";
-            exchange.sendResponseHeaders(200, res.length());
-            exchange.getResponseBody().write(res.getBytes(StandardCharsets.UTF_8));
+            WebUtils.redirectWithFlash(exchange, "/", "login", "error", "Incorrect email or password.");
+        } catch (AuthException e) {
+            WebUtils.redirectWithFlash(exchange, "/", "login", "error", e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
-            String res = "Login failed";
-            exchange.sendResponseHeaders(500, res.length());
-            exchange.getResponseBody().write(res.getBytes(StandardCharsets.UTF_8));
+            WebUtils.redirectWithFlash(exchange, "/", "login", "error", "Login failed. Please try again.");
         } finally {
             exchange.close();
         }
