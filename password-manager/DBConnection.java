@@ -16,6 +16,8 @@ public class DBConnection {
     private static final String DATABASE = getEnv("DB_NAME", "projectdb");
     private static final String USER = getEnv("DB_USER", "root");
     private static final String PASSWORD = getEnv("DB_PASSWORD", "rootpassword");
+    private static final int CONNECTION_ATTEMPTS = 15;
+    private static final long RETRY_DELAY_MS = 2000;
     private static final String PARAMETERS =
         "?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&connectTimeout=5000&socketTimeout=10000";
 
@@ -30,13 +32,19 @@ public class DBConnection {
     public static Connection getConnection() throws Exception {
         SQLException lastException = null;
 
-        for (String host : HOSTS) {
-            String url = "jdbc:mysql://" + host + ":" + PORT + "/" + DATABASE + PARAMETERS;
-            try {
-                DriverManager.setLoginTimeout(5);
-                return DriverManager.getConnection(url, USER, PASSWORD);
-            } catch (SQLException e) {
-                lastException = e;
+        for (int attempt = 1; attempt <= CONNECTION_ATTEMPTS; attempt++) {
+            for (String host : HOSTS) {
+                String url = "jdbc:mysql://" + host + ":" + PORT + "/" + DATABASE + PARAMETERS;
+                try {
+                    DriverManager.setLoginTimeout(5);
+                    return DriverManager.getConnection(url, USER, PASSWORD);
+                } catch (SQLException e) {
+                    lastException = e;
+                }
+            }
+
+            if (attempt < CONNECTION_ATTEMPTS) {
+                Thread.sleep(RETRY_DELAY_MS);
             }
         }
 
