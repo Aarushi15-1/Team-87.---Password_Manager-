@@ -4,7 +4,7 @@ services:
   app:
     image: mcr.microsoft.com/devcontainers/java:1-21-bookworm
     volumes:
-      - ..:/workspaces/Team-87.---Password_Manager-:cached
+      - ../..:/workspaces/Team-87.---Password_Manager-:cached
     working_dir: "/workspaces/Team-87.---Password_Manager-/Team 87 - PassVault/password-manager"
     command: sleep infinity
     depends_on:

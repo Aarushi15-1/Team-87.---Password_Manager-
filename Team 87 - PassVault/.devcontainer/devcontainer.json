@@ -3,8 +3,8 @@
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
   "workspaceFolder": "/workspaces/Team-87.---Password_Manager-/Team 87 - PassVault/password-manager",
-  "postCreateCommand": "bash '/workspaces/Team-87.---Password_Manager-/Team 87 - PassVault/.devcontainer/install-mysql-client.sh' || true",
-  "postStartCommand": "bash '/workspaces/Team-87.---Password_Manager-/Team 87 - PassVault/.devcontainer/start-app.sh' --background || true",
+  "postCreateCommand": "bash ../.devcontainer/install-mysql-client.sh || true",
+  "postStartCommand": "bash ../.devcontainer/start-app.sh --background || true",
   "forwardPorts": [8080, 3306],
   "portsAttributes": {
     "8080": {
