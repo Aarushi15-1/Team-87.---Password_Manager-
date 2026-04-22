@@ -2,7 +2,7 @@
   "name": "Password Manager Codespace",
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
-  "workspaceFolder": "/workspaces/Password/password-manager",
+  "workspaceFolder": "/workspaces/password-manager",
   "postCreateCommand": "bash ../.devcontainer/install-mysql-client.sh || true",
   "postStartCommand": "bash ../.devcontainer/start-app.sh --background || true",
   "forwardPorts": [8080, 3306],
